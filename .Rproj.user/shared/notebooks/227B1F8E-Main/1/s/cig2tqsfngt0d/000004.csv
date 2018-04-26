@@ -1,0 +1,36 @@
+"0","feature_pairs <- make_feature_pairs(lemma_list = lemma_list)
+"
+"2","Parsed with column specification:
+cols(
+  .default = col_integer(),
+  Concept = col_character(),
+  Feature = col_character(),
+  WB_Label = col_character(),
+  WB_Maj = col_character(),
+  WB_Min = col_character(),
+  BR_Label = col_character(),
+  Disting = col_character(),
+  Distinct = col_double(),
+  CV_No_Tax = col_double(),
+  Intercorr_Str_Tax = col_double(),
+  Intercorr_Str_No_Tax = col_double(),
+  Phon_1st = col_character(),
+  `ln(KF)` = col_double(),
+  `ln(BNC)` = col_double(),
+  Familiarity = col_double(),
+  Bigram = col_double(),
+  Trigram = col_double(),
+  `Disting_Feats_%_No_Tax` = col_double(),
+  Mean_Distinct_No_Tax = col_double(),
+  Mean_CV_No_Tax = col_double()
+  # ... with 1 more columns
+)
+"
+"2","See spec(...) for full column specifications.
+"
+"2","Joining, by = ""uni_lemma""
+"
+"2","Joining, by = ""item""
+"
+"2","Joining, by = ""pair""
+"

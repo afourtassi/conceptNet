@@ -1,0 +1,338 @@
+
+List of libraries
+```{r}
+  library(purrr)
+  library(readr)
+  library(ggplot2)
+  library(langcog)
+  library(boot)
+  library(dplyr)
+  library(tidyr)
+  library(wordbankr)
+  library(directlabels)
+  library(stringr)
+  library(lmtest)
+  library(rwebppl)
+  library(jsonlite)
+  library(nlme)
+  library(feather)
+  library(broom)
+  library(HDInterval)
+  library(BBmisc)
+  library(igraph)
+```
+
+
+Import helper functions
+
+
+```{r}
+source(paste(getwd(),"/helpers/all_helper.r",sep = ""), chdir = T)
+```
+
+
+Create pairs 
+
+```{r}
+#Import data form wordbank in a format that will be useful for us (especially when we will do development in time).
+
+#The format: for each age (in months, it starts with 16, 17,..) list all words that have NOT yet been acquired  (acquisition is defined by the criterion that 50% of the children can produce the word). The "defintion" is the word, the "unilemma"" is the translation in English (but since we are using only English at this point, both are the same). "learned" is 1 when the word is acquired at that month, and 0 when the word is not aquired at that month. Thus, words with learned=1 at month n, will disapear from month n+1
+
+wb_data <- make_aoa_dataframe(lang="English (American)", lang_form = "WS", lex_class = "nouns")
+
+
+#extract the first age (it is 16 month in English)
+first_age<- wb_data$age[1]
+
+#Extract the list of all uni_lemmas (like Hills, we will start with the analysis of all words first)
+lemma_list<- wb_data %>%
+  trim_all_unilemma() %>% #We do naive triming at this point, this means we are ignoring homophone/polysemy (chiken (food), chiken (animals), etc,.. but we will have to be careful in our choices if we are preparing later for publication
+  filter(age==first_age) %>% #Since the fisrt month in our format is the month when all words are stil present 
+  select(item, uni_lemma) 
+    
+    # list of definitions (we don't need them at this point)
+    def_list<- wb_data %>%
+      trim_all_definition() %>% 
+      filter(age==first_age) %>%
+      select(item, definition)
+    
+#Make list of pairs for associative data
+#The output: all pairs of words (first is named "item"" and seoncd is named "pair"), link =0 (no link), =1 (there is a link)
+assoc_pairs<- make_assoc_pairs(lemma_list = lemma_list)
+
+#Make list of pairs for MacRae features
+#The output: same as above, but here instead of link, we have "shared" which specify the number of shared links 
+feature_pairs <- make_feature_pairs(lemma_list = lemma_list)
+```
+
+
+```
+```
+
+Some useful functions
+
+```{r}
+
+#Extract the words
+get_lang_item_data <- function(lang, lang_form = "WS", lex_class = "nouns") {
+
+  item_data <- get_item_data(language = lang, form = lang_form) %>%
+    select(num_item_id, definition, type, lexical_class, uni_lemma) %>%
+    filter(type == "word", lexical_class == lex_class) %>%
+    rename(item = num_item_id)
+  
+  #Initialize every item as NA (NOT yet learnt)
+  lang_item <- item_data %>%
+    select(item, definition, uni_lemma) %>%
+    mutate(age = NA)
+  
+  return(lang_item)
+}
+
+##Extract the children' id (named data_id)  and their age
+get_lang_admin_data <- function(lang, lang_form = "WS") {
+  #get the kids' data_id from every age
+  admin_data <- get_administration_data() %>%
+    filter(form == lang_form, !is.na(production), language == lang) %>%
+    select(data_id, age) %>%
+    arrange(age)
+  
+  return(admin_data)
+}
+
+##get the children's id and the along with word's id (here called item) and whether the child produces that word (value)
+##note that here we only select children who do produce the words
+get_lang_instr_data <- function(lang, lang_form = "WS") {
+  instr_data <- get_instrument_data(instrument_language = lang,
+                                    instrument_form = lang_form) %>%
+    filter(value == "produces") %>%
+    arrange(num_item_id) %>%
+    rename(item = num_item_id)
+  
+  return(instr_data)
+}
+
+
+# Number of kids in every age
+get_kids_by_age <- function(admin_data) {
+  #get number of kids by age
+  nkids_by_age <- admin_data %>%
+    group_by(age) %>%
+    summarise(n = n())
+  return(nkids_by_age)
+}
+
+## This fucntion takes output from all previous function and ??,
+get_lang_aoa <- function(item_data, admin_data, instr_data) {
+  nkids_by_age <- get_kids_by_age(admin_data)
+  ages<- nkids_by_age$age
+  
+  #Calculate the age of acqusition for each word (defined as the month when at least 50% of the kids produce it)
+  for (cur_age in ages) {
+    rem_item <- item_data %>% filter(is.na(age))
+    current_age_id <- admin_data %>% filter(age == cur_age)
+    current_instr <- instr_data %>% 
+      filter(data_id %in% current_age_id$data_id)
+    for (w in rem_item$item) {
+      proportion <- sum(current_instr$item == w) / nkids_by_age$n[which(ages==cur_age)]
+      if (proportion >= 0.5) {
+        item_data$age[which(item_data$item == w)] = cur_age
+      }
+    }
+  }
+  word_aoa<- item_data %>% filter(!is.na(age))
+  return(word_aoa)
+}
+
+
+#check how many words are learnt each age
+get_nwords_by_age <- function(word_aoa) {
+  nwords_by_age <- word_aoa %>%
+    arrange(age) %>%
+    group_by(age) %>%
+    summarise(n = n())
+  
+  return(nwords_by_age)
+}
+
+######################################################################################################################
+#make a final dataframe
+make_aoa_dataframe_helper <- function(word_aoa) {
+  ages<- get_nwords_by_age(word_aoa)$age
+  df <- data.frame()
+  for (i in ages) {
+    rem_words <- word_aoa %>% filter(age >= i)
+    rem_lemma <- c(rem_words$uni_lemma)
+    rem_def <- c(rem_words$definition)
+    rem_item<- c(rem_words$item)
+    corr_age <- rep(i, times = length(rem_lemma))
+    curr_df <- data.frame(corr_age, rem_item, rem_lemma, rem_def)
+    df <- rbind(df, curr_df)
+  }  
+  df <- df %>% rename(uni_lemma = rem_lemma, definition=rem_def, item=rem_item)%>%
+    left_join(word_aoa %>% select(item, age)) %>%
+    mutate(learned = as.numeric(age == corr_age)) %>%
+    select(corr_age, item, definition, uni_lemma,learned) %>%
+    rename(age = corr_age) %>%
+    arrange(age, item)
+  return(df)
+}
+
+
+item_data <- get_lang_item_data(lang = 'English (American)')
+
+admin_data <- get_lang_admin_data(lang = 'English (American)')
+
+instr_data <- get_lang_instr_data(lang = 'English (American)')
+
+nkids_by_age <- get_kids_by_age(admin_data)
+
+word_aoa <- get_lang_aoa(item_data = item_data,
+                 admin_data = admin_data,
+                 instr_data = instr_data)
+
+#We might not need this right now since we start with all words (but we might need this if we decide to do lexical growth)
+final <- make_aoa_dataframe_helper(word_aoa)
+
+
+
+```
+```{r}
+trim_all_unilemma<-function(unilemma_list){
+  unilemma_list<- unilemma_list %>%
+    mutate(uni_lemma=gsub(" \\s*\\([^\\)]+\\)","", uni_lemma)) %>%
+    mutate(uni_lemma=gsub("[*].*$","", uni_lemma)) %>%
+    filter(!is.na(uni_lemma))
+  return(unilemma_list)
+}
+
+######################################################################################################################
+trim_all_definition<-function(def_list){
+  def_list<- def_list %>%
+    mutate(definition= gsub(" \\s*\\([^\\)]+\\)","", definition)) %>%
+    mutate(definition= gsub("[*].*$","", definition)) %>%
+    mutate(definition= gsub("\\/.*", "", definition)) %>%
+    filter(definition!= "babysitter's name", 
+           definition!= "child's own name", 
+           definition!= "pet's name") %>%
+    mutate(definition= gsub("[[:punct:]]", "", definition)) 
+  
+  return(def_list)
+}
+```
+
+
+```{r}
+#list of lemmas of learnt words
+first_age<- final$age[1]
+
+    lemma_list<- final %>%
+      trim_all_unilemma() %>%
+      filter(age==first_age) %>%
+      select(item, uni_lemma) 
+    
+    # list of definitions of learnt words
+    def_list<- final %>%
+      trim_all_definition() %>% 
+      filter(age==first_age) %>%
+      select(item, definition)
+```
+
+Associative parirs
+
+```{r}
+make_assoc_pairs <- function(lemma_list) {
+  
+  cue_target<- read.csv("data/association_cue_target.csv", as.is = T)
+  # filter until words in lemma_list remain
+  lemma_list<- lemma_list %>% filter((uni_lemma %in% cue_target$cue) | (uni_lemma %in% cue_target$target))
+  lemma<- lemma_list$uni_lemma
+  cue_target<- cue_target %>% 
+    filter(cue %in% lemma, 
+           target %in% lemma, 
+           normed=="YES") %>% 
+    select(cue, target) %>% 
+    mutate(link=1)
+  
+  assoc_table<- expand.grid(cue= lemma, target= lemma) %>% 
+    left_join(cue_target) %>% 
+    mutate(link=if_else(is.na(link),0,link))
+  
+  #make a association network dataframe with item number
+  #rename stuffs so it could conform to the format  needs
+  #item corresponds to target ;  pair corresponds to cue
+  assoc_link <- assoc_table %>%
+    rename(pair.definition = cue) %>%
+    left_join(lemma_list, c("pair.definition" = "uni_lemma")) %>%
+    rename(pair = item, item.definition = target) %>%
+    left_join(lemma_list, c("item.definition" = "uni_lemma")) %>%
+    select(item, item.definition, pair, pair.definition, link) %>%
+    arrange(item, pair) %>%
+    filter(item!=pair)
+  
+  return(assoc_link)
+}
+
+```
+
+MacRae features
+
+```{r}
+
+make_McRae_pairs <- function(lemma_list) {
+  #Get the McRae features
+  features <-
+    hi <- read_delim("data/MacRae.csv", delim = ",") %>%
+    select(Concept, Feature, WB_Label, BR_Label) %>%
+    rename(uni_lemma=Concept)
+  #Intersection of Wordbank with McRae concepts
+  #(Note that we work with unilemmas and not with definitions becuase we would like to use cross-linguistic data)
+  
+  #List of word types in WordBank
+  wb <- lemma_list
+  # List of wordbank with feature
+  
+  #Here I still should deal with words in parenthesis (homophony/polysemy), e.g., chiken (animal) vs. chiken (food), etc...
+  
+  item_feat <- wb %>%
+    left_join(features) %>%
+    rename(item.definition = uni_lemma,
+           item_feat = Feature) %>%
+    filter(!is.na(item_feat)) %>%
+    select(item, item.definition, item_feat)
+  
+  
+  item_feat_list <- (wb %>%
+                       filter(item %in% item_feat$item) %>%
+                       select(item))$item
+  
+  # List these words pair-wise and compate the number of shared feature for each pair
+  item_pair <- expand.grid(item = item_feat_list,
+                           pair = item_feat_list)
+  
+  pair_feat <- item_feat %>%
+    rename(pair = item,
+           pair_feat = item_feat,
+           pair.definition = item.definition)
+  
+  item_feat_pair <- left_join(item_feat, item_pair)
+  
+  item_pair_feat <- item_feat_pair %>%
+    left_join(pair_feat)
+  
+  item_pair_shared <- item_pair_feat %>%
+    group_by(item, item.definition, pair, pair.definition) %>%
+    summarise(shared = sum(pair_feat == item_feat)) %>%
+    filter(item!=pair)
+  
+  return(item_pair_shared)
+}
+```
+
+
+
+```{r}
+assoc_pairs<- make_assoc_pairs(lemma_list = lemma_list)
+feature_pairs <- make_McRae_pairs(lemma_list = lemma_list)
+```
+
