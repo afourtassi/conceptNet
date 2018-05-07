@@ -34,7 +34,7 @@ source(paste(getwd(),"/helpers/all_helper.r",sep = ""), chdir = T)
 Create pairs 
 
 ```{r}
-#Import data form wordbank in a format that will be useful for us (especially when we will do development in time).
+#Import data from wordbank in a format that will be useful for us (especially when we will do development in time).
 
 #The format: for each age (in months, it starts with 16, 17,..) list all words that have NOT yet been acquired  (acquisition is defined by the criterion that 50% of the children can produce the word). The "defintion" is the word, the "unilemma"" is the translation in English (but since we are using only English at this point, both are the same). "learned" is 1 when the word is acquired at that month, and 0 when the word is not aquired at that month. Thus, words with learned=1 at month n, will disapear from month n+1
 
@@ -47,7 +47,7 @@ first_age<- wb_data$age[1]
 #Extract the list of all uni_lemmas (like Hills, we will start with the analysis of all words first)
 lemma_list<- wb_data %>%
   trim_all_unilemma() %>% #We do naive triming at this point, this means we are ignoring homophone/polysemy (chiken (food), chiken (animals), etc,.. but we will have to be careful in our choices if we are preparing later for publication
-  filter(age==first_age) %>% #Since the fisrt month in our format is the month when all words are stil present 
+  filter(age==first_age) %>% #Since the first month in our format is the month when all words are stil present 
   select(item, uni_lemma) 
     
     # list of definitions (we don't need them at this point)

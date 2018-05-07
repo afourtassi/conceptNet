@@ -55,8 +55,8 @@ get_kids_by_age <- function(admin_data) {
 ######################################################################################################################
 #get "produces" instrument data 
 get_lang_instr_data <- function(lang, lang_form = "WS") {
-  instr_data <- get_instrument_data(instrument_language = lang,
-                                    instrument_form = lang_form) %>%
+  instr_data <- get_instrument_data(language = lang,
+                                    form = lang_form) %>%
     filter(value == "produces") %>%
     arrange(num_item_id) %>%
     rename(item = num_item_id)
