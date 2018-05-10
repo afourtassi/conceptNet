@@ -1,4 +1,3 @@
-
 List of libraries
 ```{r}
   library(purrr)
@@ -24,7 +23,6 @@ List of libraries
 
 
 Import helper functions
-
 
 ```{r}
 source(paste(getwd(),"/helpers/all_helper.r",sep = ""), chdir = T)
@@ -65,15 +63,24 @@ assoc_pairs <- make_assoc_pairs(lemma_list = lemma_list)
 feature_pairs <- make_feature_pairs(lemma_list = lemma_list)
 ```
 
-```{r}
-lemma_vertices <- lemma_list %>%
-  rename("name"="item")
 
+Build graphs
+
+```{r}
 assoc_links <- assoc_pairs %>%
   filter(link==1) %>%
-  select(item, pair, item.definition, pair.definition) %>%
-  rename("from"="item", "to"="pair")
+  select(item, pair, item.definition, pair.definition)
 
-g <- graph_from_data_frame(assoc_links, directed=FALSE, vertices=lemma_list) %>% simplify()
-print(g, e=TRUE, v=TRUE)
+feature_links <- feature_pairs %>%
+  filter(shared > 0) %>% # arbitrary, what does the # of shared links represent?
+  select(item, pair, item.definition, pair.definition)
+
+assoc_graph <- graph_from_data_frame(assoc_links, directed=FALSE, vertices=lemma_list) %>%
+  simplify()
+
+feature_graph <- graph_from_data_frame(feature_links, directed=FALSE, vertices=lemma_list) %>%
+  simplify()
+
+print(assoc_graph, e=TRUE, v=TRUE)
+print(feature_graph, e=TRUE, v=TRUE)
 ```
