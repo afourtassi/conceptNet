@@ -57,10 +57,23 @@ lemma_list<- wb_data %>%
       select(item, definition)
     
 #Make list of pairs for associative data
-#The output: all pairs of words (first is named "item"" and seoncd is named "pair"), link =0 (no link), =1 (there is a link)
-assoc_pairs<- make_assoc_pairs(lemma_list = lemma_list)
+#The output: all pairs of words (first is named "item"" and second is named "pair"), link =0 (no link), =1 (there is a link)
+assoc_pairs <- make_assoc_pairs(lemma_list = lemma_list)
 
 #Make list of pairs for MacRae features
 #The output: same as above, but here instead of link, we have "shared" which specify the number of shared links 
 feature_pairs <- make_feature_pairs(lemma_list = lemma_list)
+```
+
+```{r}
+lemma_vertices <- lemma_list %>%
+  rename("name"="item")
+
+assoc_links <- assoc_pairs %>%
+  filter(link==1) %>%
+  select(item, pair, item.definition, pair.definition) %>%
+  rename("from"="item", "to"="pair")
+
+g <- graph_from_data_frame(assoc_links, directed=FALSE, vertices=lemma_list) %>% simplify()
+print(g, e=TRUE, v=TRUE)
 ```
