@@ -1,40 +1,50 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+# Basic Network Analysis of Wordbank Data
+
+## Build Networks
 
 List of libraries
-```{r}
-  library(purrr)
-  library(readr)
-  library(ggplot2)
-  library(langcog)
-  library(boot)
-  library(dplyr)
-  library(tidyr)
-  library(wordbankr)
-  library(directlabels)
-  library(stringr)
-  library(lmtest)
-  library(rwebppl)
-  library(jsonlite)
-  library(nlme)
-  library(feather)
-  library(broom)
-  library(HDInterval)
-  library(BBmisc)
-  library(igraph)
+```{r echo=TRUE, warning=FALSE, message=FALSE}
+library(purrr)
+library(readr)
+library(ggplot2)
+library(langcog)
+library(boot)
+library(dplyr)
+library(tidyr)
+library(wordbankr)
+library(directlabels)
+library(stringr)
+library(lmtest)
+library(rwebppl)
+library(jsonlite)
+library(nlme)
+library(feather)
+library(broom)
+library(HDInterval)
+library(BBmisc)
+library(igraph)
+library(knitr)
+library(lemon)
+library(tibble)
 ```
 
 
-Import helper functions
-
-
-```{r}
+Import helper functions and configure RMarkdown
+```{r echo=TRUE, warning=FALSE, message=FALSE}
 source(paste(getwd(),"/helpers/all_helper.r",sep = ""), chdir = T)
+
+knit_print.data.frame <- lemon_print # use kable when displaying tibbles in knit
 ```
 
 
 Create pairs 
-
-```{r}
-#Import data form wordbank in a format that will be useful for us (especially when we will do development in time).
+```{r echo=TRUE, warning=FALSE, message=FALSE}
+#Import data from wordbank in a format that will be useful for us (especially when we will do development in time).
 
 #The format: for each age (in months, it starts with 16, 17,..) list all words that have NOT yet been acquired  (acquisition is defined by the criterion that 50% of the children can produce the word). The "defintion" is the word, the "unilemma"" is the translation in English (but since we are using only English at this point, both are the same). "learned" is 1 when the word is acquired at that month, and 0 when the word is not aquired at that month. Thus, words with learned=1 at month n, will disapear from month n+1
 
@@ -47,7 +57,7 @@ first_age<- wb_data$age[1]
 #Extract the list of all uni_lemmas (like Hills, we will start with the analysis of all words first)
 lemma_list<- wb_data %>%
   trim_all_unilemma() %>% #We do naive triming at this point, this means we are ignoring homophone/polysemy (chiken (food), chiken (animals), etc,.. but we will have to be careful in our choices if we are preparing later for publication
-  filter(age==first_age) %>% #Since the fisrt month in our format is the month when all words are stil present 
+  filter(age==first_age) %>% #Since the first month in our format is the month when all words are stil present 
   select(item, uni_lemma) 
     
     # list of definitions (we don't need them at this point)
@@ -57,10 +67,68 @@ lemma_list<- wb_data %>%
       select(item, definition)
     
 #Make list of pairs for associative data
-#The output: all pairs of words (first is named "item"" and seoncd is named "pair"), link =0 (no link), =1 (there is a link)
-assoc_pairs<- make_assoc_pairs(lemma_list = lemma_list)
+#The output: all pairs of words (first is named "item"" and second is named "pair"), link =0 (no link), =1 (there is a link)
+assoc_pairs <- make_assoc_pairs(lemma_list = lemma_list)
 
 #Make list of pairs for MacRae features
 #The output: same as above, but here instead of link, we have "shared" which specify the number of shared links 
 feature_pairs <- make_feature_pairs(lemma_list = lemma_list)
+```
+
+Build networks
+```{r}
+assoc_links <- assoc_pairs %>%
+  filter(link==1) %>%
+  select(item, pair, item.definition, pair.definition)
+
+feature_links <- feature_pairs %>%
+  filter(shared > 0) %>% # arbitrary, what does the # of shared links represent?
+  select(item, pair, item.definition, pair.definition)
+
+assoc_network <- graph_from_data_frame(assoc_links, directed=FALSE, vertices=lemma_list) %>%
+  simplify() %>%
+  set.graph.attribute("name", "Assoc") # maybe rewrite as g$name <- "Name"
+
+feature_network <- graph_from_data_frame(feature_links, directed=FALSE, vertices=lemma_list) %>%
+  simplify() %>%
+  set.graph.attribute("name", "Feature")
+
+networks <- list(assoc_network, feature_network)
+```
+
+## Network Analysis
+
+### Large-Scale Structure of Networks
+
+a la Steyvers 2005
+
+```{r, results='asis'}
+network_properties <- tibble(
+  names = map_chr(networks, ~ .x$name),
+  vertices = map_int(networks, vcount),
+  edges = map_dbl(networks, ecount) %>%
+    as.integer(), # for some reason igraph ecount returns double
+  avg_degree = map(networks, degree) %>%
+    map_dbl(mean),
+  avg_shortest_path = map_dbl(networks, mean_distance),
+  diameter = map_dbl(networks, diameter) %>%
+    as.integer(),
+  clustering_coefficient = map_dbl(networks, transitivity),
+  avg_shortest_path_random = 0, # either estimate or calculate values for random nets
+  diameter_random = 0,
+  clustering_coefficient_random = 0
+)
+
+network_properties # improve formatting
+```
+
+Degree Distribution
+```{r}
+assoc_degree <- tibble(k = 1:length(degree_distribution(assoc_network)),
+                       p = degree_distribution(assoc_network))
+feature_degree <- tibble(k = 1:length(degree_distribution(feature_network)),
+                       p = degree_distribution(feature_network))
+
+ggplot(data = assoc_degree, aes(x = k, y = p)) + geom_line()
+ggplot(data = feature_degree, aes(x = k, y = p)) + geom_line()
 ```
