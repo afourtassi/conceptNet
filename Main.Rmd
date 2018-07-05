@@ -9,28 +9,28 @@ output:
 
 List of libraries
 ```{r echo=TRUE, warning=FALSE, message=FALSE}
-library(purrr)
-library(readr)
+library(purrr) # fp library
+library(readr) # read text data files (csv, etc.)
 library(ggplot2)
-library(langcog)
-library(boot)
-library(dplyr)
-library(tidyr)
-library(wordbankr)
-library(directlabels)
-library(stringr)
-library(lmtest)
-library(rwebppl)
-library(jsonlite)
-library(nlme)
-library(feather)
-library(broom)
-library(HDInterval)
-library(BBmisc)
-library(igraph)
-library(knitr)
-library(lemon)
-library(tibble)
+library(langcog) # useful things used by Language and Cognition Lab
+library(boot) # functions for bootstrapping
+library(dplyr) # for working with datafram-like objects
+library(tidyr) # for data tidying
+library(wordbankr) # access to wordbank data
+library(directlabels) # direct labeling of data in plots
+library(stringr) # common string operations
+library(lmtest) #  diagnostic checking in linear regression models
+library(rwebppl) # interface to probabilistic programming language WebPPL
+library(jsonlite) # JSON parser
+library(nlme) # gaussian linear and nonlinear mixed-effects models
+library(feather) # read and write fast lightweight binary columnar data
+library(broom) # converts R function outputs to tidy data frames
+library(HDInterval) # calculate highest density intervals of objects w/ pdf
+library(BBmisc) # misc helper functions
+library(igraph) # network analysis and visualization
+library(knitr) # general-purpose tool for dynamic report generation
+library(lemon) # functions for working w/ ggplot2 and knitr extensions
+library(tibble) # modern dataframes
 ```
 
 
