@@ -32,6 +32,7 @@ library(knitr) # general-purpose tool for dynamic report generation
 library(lemon) # functions for working w/ ggplot2 and knitr extensions
 library(tibble) # modern dataframes
 library(doParallel)
+library(networkD3)
 ```
 
 
@@ -203,7 +204,36 @@ mean(b1$time)/mean(b3$time)
 
 Initial Clique Analysis
 ```{r}
-g <- assoc_networks[[6]]
-clique.community.opt(g,3)
+age <- 20
+g <- assoc_networks[[age - 15]]
+g <- delete.vertices(g, degree(g)==0)
+res <- clique.community.opt(g,3)
+
+## Paint them to different colors
+colbar <- rainbow( length(res)+1 )
+for (i in seq(along=res)) {
+  V(g)[ res[[i]] ]$color <- colbar[i+1]
+}
+
+## Paint the vertices in multiple communities to red
+V(g)[ unlist(res)[ duplicated(unlist(res)) ] ]$color <- "red"
+
+## Plot with the new colors
+plot(g, layout=layout_with_fr, vertex.label=V(g)$uni_lemma)
+```
+
+Dynamic Visualization
+```{r}
+karate <- make_graph("Zachary")
+wc <- cluster_walktrap(karate)
+members <- membership(wc)
+
+# Convert to object suitable for networkD3
+karate_d3 <- igraph_to_networkD3(karate, group = members)
+
+# Create force directed network plot
+forceNetwork(Links = karate_d3$links, Nodes = karate_d3$nodes,
+             Source = 'source', Target = 'target', NodeID = 'name',
+             Group = 'group')
 ```
 
