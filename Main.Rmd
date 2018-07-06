@@ -11,7 +11,7 @@ List of libraries
 ```{r echo=TRUE, warning=FALSE, message=FALSE}
 library(purrr) # fp library
 library(readr) # read text data files (csv, etc.)
-library(ggplot2)
+library(ggplot2) # plotting
 library(langcog) # useful things used by Language and Cognition Lab
 library(boot) # functions for bootstrapping
 library(dplyr) # for working with datafram-like objects
@@ -31,6 +31,7 @@ library(igraph) # network analysis and visualization
 library(knitr) # general-purpose tool for dynamic report generation
 library(lemon) # functions for working w/ ggplot2 and knitr extensions
 library(tibble) # modern dataframes
+library(doParallel)
 ```
 
 
@@ -42,58 +43,54 @@ knit_print.data.frame <- lemon_print # use kable when displaying tibbles in knit
 ```
 
 
-Create pairs 
+Create vocab 
 ```{r echo=TRUE, warning=FALSE, message=FALSE}
-#Import data from wordbank in a format that will be useful for us (especially when we will do development in time).
+# Import data from wordbank. Age of aquisition (in months, it starts with 16, 17,..) is that at which 50% of children can produce the word. The "defintion" is the word, the "unilemma"" is the translation in English.
 
-#The format: for each age (in months, it starts with 16, 17,..) list all words that have NOT yet been acquired  (acquisition is defined by the criterion that 50% of the children can produce the word). The "defintion" is the word, the "unilemma"" is the translation in English (but since we are using only English at this point, both are the same). "learned" is 1 when the word is acquired at that month, and 0 when the word is not aquired at that month. Thus, words with learned=1 at month n, will disapear from month n+1
+# We also do naive triming at this point, this means we are ignoring homophone/polysemy (chiken (food), chiken (animals), etc,.. but we will have to be careful in our choices if we are preparing later for publication
 
-wb_data <- make_aoa_dataframe(lang="English (American)", lang_form = "WS", lex_class = "nouns")
-
-
-#extract the first age (it is 16 month in English)
-first_age<- wb_data$age[1]
-
-#Extract the list of all uni_lemmas (like Hills, we will start with the analysis of all words first)
-lemma_list<- wb_data %>%
-  trim_all_unilemma() %>% #We do naive triming at this point, this means we are ignoring homophone/polysemy (chiken (food), chiken (animals), etc,.. but we will have to be careful in our choices if we are preparing later for publication
-  filter(age==first_age) %>% #Since the first month in our format is the month when all words are stil present 
-  select(item, uni_lemma) 
-    
-    # list of definitions (we don't need them at this point)
-    def_list<- wb_data %>%
-      trim_all_definition() %>% 
-      filter(age==first_age) %>%
-      select(item, definition)
-    
-#Make list of pairs for associative data
-#The output: all pairs of words (first is named "item"" and second is named "pair"), link =0 (no link), =1 (there is a link)
-assoc_pairs <- make_assoc_pairs(lemma_list = lemma_list)
-
-#Make list of pairs for MacRae features
-#The output: same as above, but here instead of link, we have "shared" which specify the number of shared links 
-feature_pairs <- make_feature_pairs(lemma_list = lemma_list)
+vocab <- make_vocab_dataframe(lang="English (American)",
+                              lang_form = "WS",
+                              lex_class = "nouns") %>%
+  trim_all_unilemma() %>%
+  trim_all_definition() # %>%
+  # distinct(uni_lemma, .keep_all = TRUE) # remove words with the same uni_lemma?
 ```
 
 Build networks
 ```{r}
-assoc_links <- assoc_pairs %>%
-  filter(link==1) %>%
-  select(item, pair, item.definition, pair.definition)
+assoc_network <- function(vocab, max_age) {
+  vocab_up_to_age = filter(vocab, age <= max_age)
+  assoc_links <- make_assoc_pairs(lemma_list = vocab_up_to_age) %>%
+    filter(link==1) %>%
+    select(item, pair, item.definition, pair.definition)
+  graph <- graph_from_data_frame(assoc_links, directed=FALSE, vertices=vocab_up_to_age) %>%
+    simplify() %>%
+    set.graph.attribute("name", "Assoc") %>%
+    set.graph.attribute("age", max_age)
+  return(graph)
+}
 
-feature_links <- feature_pairs %>%
-  filter(shared > 0) %>% # arbitrary, what does the # of shared links represent?
-  select(item, pair, item.definition, pair.definition)
+feature_network <- function(vocab, max_age, shared_threshold) {
+  vocab_up_to_age = filter(vocab, age <= max_age)
+  feature_links <- make_feature_pairs(lemma_list = vocab_up_to_age) %>%
+    filter(shared >= shared_threshold) %>%
+    select(item, pair, item.definition, pair.definition)
+  graph <- graph_from_data_frame(feature_links, directed=FALSE, vertices=vocab_up_to_age) %>%
+    simplify() %>%
+    set.graph.attribute("name", "Feature") %>%
+    set.graph.attribute("age", max_age)
+  return(graph)
+}
 
-assoc_network <- graph_from_data_frame(assoc_links, directed=FALSE, vertices=lemma_list) %>%
-  simplify() %>%
-  set.graph.attribute("name", "Assoc") # maybe rewrite as g$name <- "Name"
+ages <- vocab$age %>% unique() %>% sort()
+assoc_networks <- list()
+feature_networks <- list()
+for (age in ages) {
+  assoc_networks <- append(assoc_networks, list(assoc_network(vocab, age)))
+  feature_networks <- append(feature_networks, list(feature_network(vocab, age, 1)))
 
-feature_network <- graph_from_data_frame(feature_links, directed=FALSE, vertices=lemma_list) %>%
-  simplify() %>%
-  set.graph.attribute("name", "Feature")
-
-networks <- list(assoc_network, feature_network)
+}
 ```
 
 ## Network Analysis
@@ -103,8 +100,11 @@ networks <- list(assoc_network, feature_network)
 a la Steyvers 2005
 
 ```{r, results='asis'}
-network_properties <- tibble(
+network_properties <- function(networks) {
+  return( tibble(
   names = map_chr(networks, ~ .x$name),
+  ages = map_dbl(networks, ~ .x$age) %>%
+    as.integer(),
   vertices = map_int(networks, vcount),
   edges = map_dbl(networks, ecount) %>%
     as.integer(), # for some reason igraph ecount returns double
@@ -116,19 +116,87 @@ network_properties <- tibble(
   clustering_coefficient = map_dbl(networks, transitivity),
   avg_shortest_path_random = 0, # either estimate or calculate values for random nets
   diameter_random = 0,
-  clustering_coefficient_random = 0
-)
+  clustering_coefficient_random = 0) )
+}
 
-network_properties # improve formatting
+network_properties(assoc_networks) # improve formatting
+network_properties(feature_networks)
 ```
 
-Degree Distribution
+Visualize Networks
 ```{r}
-assoc_degree <- tibble(k = 1:length(degree_distribution(assoc_network)),
-                       p = degree_distribution(assoc_network))
-feature_degree <- tibble(k = 1:length(degree_distribution(feature_network)),
-                       p = degree_distribution(feature_network))
+plot_network <- function(g, remove_isolated=FALSE) {
+  if (remove_isolated) {
+    g <- delete.vertices(g, degree(g)==0)
+  }
+  
+  plot(g, vertex.label=V(g)$uni_lemma, vertex.shape="none")
+}
 
-ggplot(data = assoc_degree, aes(x = k, y = p)) + geom_line()
-ggplot(data = feature_degree, aes(x = k, y = p)) + geom_line()
+g <- assoc_networks[[6]]
+plot_network(g, remove_isolated = FALSE)
+
+plot(g,vertex.size=.01,vertex.label.cex=.8,
+     layout=layout.fruchterman.reingold(g, niter=10000, 
+                                        area=40*vcount(g)^2),
+     edge.width=E(g)$weight)
+```
+
+Test Clique Percolation
+```{r}
+### Register Parallelisation (used by clique.community.opt.par())
+cl <- makeCluster(4)
+registerDoParallel(cl)
+getDoParWorkers()
+
+
+### Loading Benchmarks
+#1 
+g <- graph(c(1,2,1,3,1,4,2,3,3,4,4,5,4,6,5,6,5,8,5,7,6,8,6,7,7,8,7,9), directed=F)
+#2
+g <- make_graph("Zachary") #the karate network
+
+
+#Execution of the different implementation of the algorithm
+ptm <- proc.time()
+res1<-clique.community(g,3)
+proc.time() - ptm
+ptm <- proc.time()
+res2<-clique.community.opt(g,3)
+proc.time() - ptm
+ptm <- proc.time()
+res3<-clique.community.opt.par(g,3)
+proc.time() - ptm
+
+identical(res1,res2)
+identical(res2,res3)
+
+
+### PLOT
+
+#which one? the outcome is always the same
+res <- res3
+
+## Paint them to different colors
+colbar <- rainbow( length(res)+1 )
+for (i in seq(along=res)) {
+  V(g)[ res[[i]] ]$color <- colbar[i+1]
+}
+
+## Paint the vertices in multiple communities to red
+V(g)[ unlist(res)[ duplicated(unlist(res)) ] ]$color <- "red"
+
+## Plot with the new colors
+plot(g, layout=layout_with_fr, vertex.label=V(g)$name)
+
+
+#REAL PERFORMANCE TEST
+require(microbenchmark)
+b1<-microbenchmark(t1<-clique.community(g,3),times = 100,unit = 'ms')
+b2<-microbenchmark(t2<-clique.community.opt(g,3),times = 100,unit = 'ms')
+b3<-microbenchmark(t2<-clique.community.opt.par(g,3),times = 100,unit = 'ms')
+rbind(b1,b2,b3)
+mean(b1$time)/mean(b2$time)
+mean(b2$time)/mean(b3$time)
+mean(b1$time)/mean(b3$time)
 ```

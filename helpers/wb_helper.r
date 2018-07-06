@@ -140,6 +140,49 @@ make_aoa_dataframe <- function(lang, lang_form = "WS", lex_class = "nouns") {
 }
 
 ######################################################################################################################
+#make a final dataframe
+make_vocab_dataframe_helper <- function(word_aoa) {
+  ages <- word_aoa$age %>% unique() %>% sort()
+  tb <- tibble()
+  for (i in ages) {
+    new_vocab <- word_aoa %>% filter(age = i)
+    tb <- bind_rows
+    rem_words <- word_aoa %>% filter(age >= i)
+    rem_lemma <- c(rem_words$uni_lemma)
+    rem_def <- c(rem_words$definition)
+    rem_item<- c(rem_words$item)
+    corr_age <- rep(i, times = length(rem_lemma))
+    curr_df <- data.frame(corr_age, rem_item, rem_lemma, rem_def)
+    df <- rbind(df, curr_df)
+  }  
+  df <- df %>% rename(uni_lemma = rem_lemma, definition=rem_def, item=rem_item)%>%
+    left_join(word_aoa %>% select(item, age)) %>%
+    mutate(learned = as.numeric(age == corr_age)) %>%
+    select(corr_age, item, definition, uni_lemma,learned) %>%
+    rename(age = corr_age) %>%
+    arrange(age, item)
+  return(df)
+}
+
+
+######################################################################################################################
+make_vocab_dataframe <- function(lang, lang_form = "WS", lex_class = "nouns") {
+  item_data <- get_lang_item_data(lang = lang,
+                                  lang_form = lang_form,
+                                  lex_class = lex_class)
+  admin_data <-
+    get_lang_admin_data(lang = lang, lang_form = lang_form)
+  instr_data <-
+    get_lang_instr_data(lang = lang, lang_form = lang_form)
+  word_aoa <-
+    get_lang_aoa(item_data = item_data,
+                 admin_data = admin_data,
+                 instr_data = instr_data)
+  
+  return(arrange(word_aoa, age))
+}
+
+######################################################################################################################
 trim_all_unilemma<-function(unilemma_list){
   unilemma_list<- unilemma_list %>%
     mutate(uni_lemma=gsub(" \\s*\\([^\\)]+\\)","", uni_lemma)) %>%
