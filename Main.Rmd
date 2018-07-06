@@ -200,3 +200,10 @@ mean(b1$time)/mean(b2$time)
 mean(b2$time)/mean(b3$time)
 mean(b1$time)/mean(b3$time)
 ```
+
+Initial Clique Analysis
+```{r}
+g <- assoc_networks[[6]]
+clique.community.opt(g,3)
+```
+
