@@ -1,3 +1,5 @@
+# https://github.com/angelosalatino/CliquePercolationMethod-R
+
 clique.community <- function(graph, k) {
   require(igraph)
   clq <- cliques(graph, min=k, max=k) %>% lapply(as.vector)
