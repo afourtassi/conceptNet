@@ -3,9 +3,7 @@ output:
   html_document: default
   pdf_document: default
 ---
-# Basic Network Analysis of Wordbank Data
-
-## Build Networks
+# Testing of Functions and Techniques for Graph Analysis and Display
 
 List of libraries
 ```{r echo=TRUE, warning=FALSE, message=FALSE}
@@ -18,7 +16,7 @@ library(dplyr) # for working with datafram-like objects
 library(tidyr) # for data tidying
 library(wordbankr) # access to wordbank data
 library(directlabels) # direct labeling of data in plots
-library(stringr) # common string operations
+library(stringr) #common string operations
 library(lmtest) #  diagnostic checking in linear regression models
 library(rwebppl) # interface to probabilistic programming language WebPPL
 library(jsonlite) # JSON parser
@@ -31,7 +29,7 @@ library(igraph) # network analysis and visualization
 library(knitr) # general-purpose tool for dynamic report generation
 library(lemon) # functions for working w/ ggplot2 and knitr extensions
 library(tibble) # modern dataframes
-#library(doParallel)
+library(doParallel)
 library(networkD3)
 ```
 
@@ -52,12 +50,12 @@ vocab <- make_vocab_dataframe(lang="English (American)",
                               lang_form = "WS",
                               lex_class = "nouns") %>%
   trim_all_unilemma() %>%
-  trim_all_definition() # %>%
-  # distinct(uni_lemma, .keep_all = TRUE) # remove words with the same uni_lemma?
+  trim_all_definition() %>%
+  distinct(uni_lemma, .keep_all = TRUE) # remove words with the same uni_lemma?
 ```
 
 Build networks
-```{r}
+```{r, warning = FALSE }
 assoc_network <- function(vocab, max_age) {
   vocab_up_to_age = filter(vocab, age <= max_age)
   assoc_links <- make_assoc_pairs(lemma_list = vocab_up_to_age) %>%
@@ -136,7 +134,7 @@ plot_network <- function(g, remove_isolated=FALSE) {
 g <- assoc_networks[[6]]
 plot_network(g, remove_isolated = FALSE)
 
-plot(g,vertex.size=.01,vertex.label.cex=.8,
+plot(g, vertex.label=V(g)$uni_lemma, vertex.size=.01,vertex.label.cex=.8,
      layout=layout.fruchterman.reingold(g, niter=10000, 
                                         area=40*vcount(g)^2),
      edge.width=E(g)$weight)
@@ -144,7 +142,7 @@ plot(g,vertex.size=.01,vertex.label.cex=.8,
 
 Test Clique Percolation
 ```{r}
-### Register Parallelisation (used by clique.community.opt.par())
+## Register Parallelisation (used by clique.community.opt.par())
 cl <- makeCluster(4)
 registerDoParallel(cl)
 getDoParWorkers()
@@ -175,7 +173,7 @@ identical(res2,res3)
 ### PLOT
 
 #which one? the outcome is always the same
-res <- res3
+res <- res2
 
 ## Paint them to different colors
 colbar <- rainbow( length(res)+1 )
@@ -203,10 +201,10 @@ mean(b1$time)/mean(b3$time)
 
 Initial Clique Analysis
 ```{r}
-age <- 24
+age <- 20
 g <- feature_networks[[age - 15]]
 g <- delete.vertices(g, degree(g)==0)
-res <- clique.community.opt(g,6)
+res <- clique.community.opt(g,3)
 
 ## Paint them to different colors
 colbar <- rainbow( length(res)+1 )
