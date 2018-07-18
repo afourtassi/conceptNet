@@ -1,0 +1,231 @@
+---
+title: "Replication of Hills 2009"
+author: "Isaac Scheinfeld"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: default
+    df_print: paged
+---
+# Networks
+
+## Setup
+
+First we import helper functions and configure RMarkdown.
+```{r message=FALSE, warning=FALSE} 
+library(purrr) # fp library
+library(readr) # read text data files (csv, etc.)
+library(ggplot2) # plotting
+library(langcog) # useful things used by Language and Cognition Lab
+library(dplyr) # for working with datafram-like objects
+library(tidyr) # for data tidying
+library(wordbankr) # access to wordbank data
+library(stringr) # common string operations
+library(broom) # converts R function outputs to tidy data frames
+library(igraph) # network analysis and visualization
+library(knitr) # general-purpose tool for dynamic report generation
+library(kableExtra) # table formatting
+library(lemon) # functions for working w/ ggplot2 and knitr extensions
+library(tibble) # modern dataframes
+library(tidygraph)
+library(doParallel)
+library(networkD3)
+
+source(paste(getwd(),"/helpers/all_helper.r",sep = ""), chdir = T)
+
+# knit_print.data.frame <- lemon_print # use kable when displaying tibbles in knit
+```
+
+We begin by importing data from wordbank. Age of aquisition (in months, it starts with 16, 17,..) is that at which 50% of children can produce the word. We also do naive triming at this point, this means we are ignoring homophone/polysemy (chiken (food), chiken (animals), etc,.. but we will have to be careful in our choices if we are preparing later for publication.
+```{r warning=FALSE}
+# The "defintion" is the word, the "unilemma"" is the translation in English.
+
+vocab <- make_vocab_dataframe(lang="English (American)",
+                              lang_form = "WS",
+                              lex_class = "nouns") %>%
+  trim_all_unilemma() %>%
+  trim_all_definition() %>%
+  #distinct(uni_lemma, .keep_all = TRUE) # remove words with the same uni_lemma?
+```
+
+## Build Networks
+
+Next, we construct networks following the example of Hills. Using vocabulary obtained by 30 months and the same MacRae features as Hills, we construct networks from perceptual and conceptual features. We consider only words for which some feature data is available (though not necessarily perceptual or conceptual), and track the number of features that generate each edge.
+
+```{r message=FALSE}
+perceptual_features = c("sound", "taste", "smell", "tactile", 
+                           "visual-form_and_surface", "visual-motion", "visual-color")
+conceptual_features = c("function")
+
+full_network <- feature_network(vocab, max_age = 30, shared_threshold = 1,
+                                feature_types = c(perceptual_features,
+                                                  conceptual_features)) %>%
+                  set.graph.attribute("type", "both")
+
+perceptual_network <- feature_network(vocab, max_age = 30, shared_threshold = 1,
+                                      feature_types = perceptual_features) %>%
+                        set.graph.attribute("type", "perceptual")
+conceptual_network <- feature_network(vocab, max_age = 30, shared_threshold = 1,
+                                      feature_types = conceptual_features) %>%
+                        set.graph.attribute("type", "conceptual")
+```
+
+## Basic Vocab and Feature Properties
+
+Compared to Hills' 130 nouns that overlapped the MacRae data and vocabulary data, we have `r vcount(perceptual_network)` nouns.
+
+*TODO extend*
+
+## Basic Network Properties
+
+Some basic properties of networks built from perceptual and conceptual features.
+```{r, results='asis'}
+max_w <- 4
+
+network_properties <- function(networks) {
+  return( tibble(
+  name = map_chr(networks, ~ .x$name),
+  type = map_chr(networks, ~ .x$type),
+  age = map_dbl(networks, ~ .x$age) %>%
+    as.integer(),
+  w = map_dbl(networks, ~ .x$w) %>%
+    as.integer(),
+  vertices = map_int(networks, vcount),
+  edges = map_dbl(networks, ecount) %>%
+    as.integer(), # for some reason igraph ecount returns double
+  avg_degree = map(networks, degree) %>%
+    map_dbl(mean),
+  avg_shortest_path = map_dbl(networks, mean_distance),
+  diameter = map_dbl(networks, diameter) %>%
+    as.integer(),
+  clustering_coefficient = map_dbl(networks, transitivity),
+  density = edges / (vertices * (vertices - 1) / 2),
+  avg_shortest_path_random = 0, # either estimate or calculate values for random nets
+  diameter_random = 0,
+  clustering_coefficient_random = density,
+  isolates = map_dbl(networks, function (g) sum(degree(g) == 0)),
+  components = map_dbl(networks, count_components) %>%
+    as.integer() - isolates))
+}
+
+full_networks <- list()
+perceptual_networks <- list()
+conceptual_networks <- list()
+for (w in 1:max_w) {
+  full_networks[[w]] <- full_network %>%
+    activate(what = edges) %>%
+    filter(shared >= w) %>%
+    set.graph.attribute("w", w)
+    
+  perceptual_networks[[w]] <- perceptual_network %>%
+    activate(what = edges) %>%
+    filter(shared >= w) %>%
+    set.graph.attribute("w", w)
+  
+  conceptual_networks[[w]] <- conceptual_network %>%
+    activate(what = edges) %>%
+    filter(shared >= w) %>%
+    set.graph.attribute("w", w)
+}
+
+networks <- full_networks %>%
+  append(perceptual_networks) %>%
+  append(conceptual_networks)
+
+our_network_properties <- network_properties(networks)
+
+our_network_properties %>%
+  select(type, w, vertices, edges, avg_degree, diameter, avg_shortest_path, clustering_coefficient) %>%
+  kable(format="html",
+        escape = FALSE,
+        col.names = c("Type", "w", "V", "E", "Average degree", "Diameter", "Average length", "Clustering coefficient"),
+        digits = 2,
+        align = rep("l", 8)) %>%
+  kable_styling(full_width = F) %>%
+  collapse_rows(columns = 1:3, valign = "top")
+```
+
+We can compare these networks to those from Hills, noting that we have a different set of words/nodes but that the induced subgraph of those words shared between our analysis and that of Hills should be the same.
+```{r}
+hills_network_properties <- tibble( # table from Hills 2009
+  type = c(rep("all", times=4), rep("perceptual", times=4), rep("conceptual", 4)),
+  w = c(1:max_w, 1:max_w, 1:max_w),
+  clustering_coefficient = c(0.55, 0.54, 0.58, 0.60, 0.54, 0.54, 0.62, 0.62, 0.88, 0.59, 0.38, 1.00),
+  avg_shortest_path = c(1.72, 2.57, 4.96, 3.22, 1.76, 2.69, 5.02, 2.55, 3.08, 1.59, 5.02, 1.00),
+  density = c(0.29, 0.10, 0.04, 0.02, 0.27, 0.08, 0.03, 0.01, 0.05, 0.01, 0.0, 0.0),
+  components = c(1, 1, 4, 10, 1, 2, 8, 11, 7, 14, 7, 2),
+  isolates = c(0, 6, 20, 47, 0, 10, 31, 69, 33, 81, 113, 126)
+)
+
+# convert contents to text
+display_our_properties <- our_network_properties %>% mutate_all(funs(format(., digits=2, trim=TRUE)))
+display_hills_properties <- hills_network_properties %>% mutate_all(funs(paste("(", ., ")", sep='')))
+
+# combine text tables for display
+display_properties <- bind_rows(display_our_properties %>% mutate(row = 1:n()), 
+                                display_hills_properties %>% mutate(row = 1:n())) %>%
+  group_by(row) %>%
+  summarise_if(is.character, funs(paste(., collapse=" "))) %>%
+  arrange(row)
+
+# display combined properties
+select(hills_network_properties, type, w) %>%
+  bind_cols(select(display_properties, clustering_coefficient, avg_shortest_path,
+                   density, components, isolates)) %>%
+  kable(format="html",
+        escape = FALSE,
+        col.names = c("Type", "w", "Clustering Coefficient", "Average length", "Density", "Components", "Isolates"),
+        align = rep("l", 7)) %>%
+  kable_styling(full_width = F) %>%
+  collapse_rows(columns = 1:2, valign = "top")
+```
+
+## Visualize Networks
+```{r out.width = '100%'}
+par(mfcol=c(3, 3), mar=c(0.5,0.5,0.5,0.5))
+for (n in networks[c(TRUE, TRUE, TRUE, FALSE, # display networks for w=1,2,3
+                     TRUE, TRUE, TRUE, FALSE,
+                     TRUE, TRUE, TRUE, FALSE)]) {
+  plot_network(n, remove_isolated = TRUE, frame=FALSE)
+}
+```
+
+# Clusters
+
+## Visualize Networks
+```{r out.width = '100%'}
+networks <- perceptual_networks[2]
+```
+
+## Clique Percolation
+
+Initial Clique Analysis
+```{r out.width = '100%'}
+trimmed_networks <- map(networks, function (g) delete.vertices(g, degree(g)==0))
+
+# cl <- makeCluster(3)
+# registerDoParallel(cl)
+# getDoParWorkers()
+## Plot with the new colors
+for (net in networks) {
+  for (k in 3:4) {
+    clusters <- clique.community.opt(net,k)
+    plot_network(net, clusters = clusters, labels=FALSE)
+  }
+}
+# stopCluster(cl)
+```
+
+Dynamic Visualization
+```{r}
+conceptual_clusters <- membership(cluster_walktrap(conceptual_network))
+
+# Convert to object suitable for networkD3
+conceptual_d3 <- igraph_to_networkD3(conceptual_network, group = conceptual_clusters)
+
+# Create force directed network plot
+forceNetwork(Links = conceptual_d3$links, Nodes = conceptual_d3$nodes,
+             Source = 'source', Target = 'target', NodeID = 'name',
+             Group = 'group')
+```
+

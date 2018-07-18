@@ -1,4 +1,5 @@
 source("wb_helper.r")
-source("make_assoc_pairs.r")
-source("make_feature_pairs.r")
+source("assoc_helper.r")
+source("feature_helper.r")
+source("plot_helper.r")
 source("clique_percolation.r")

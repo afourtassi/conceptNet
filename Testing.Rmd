@@ -33,6 +33,11 @@ library(doParallel)
 library(networkD3)
 ```
 
+
+```{r, setup, include=FALSE}
+#knitr::opts_chunk$set(collapse = TRUE)
+```
+
 Import helper functions and configure RMarkdown
 ```{r echo=TRUE, warning=FALSE, message=FALSE}
 source(paste(getwd(),"/helpers/all_helper.r",sep = ""), chdir = T)
@@ -91,8 +96,6 @@ for (age in ages) {
 ```
 
 ## Network Analysis
-
-### Large-Scale Structure of Networks
 
 a la Steyvers 2005
 
@@ -199,12 +202,14 @@ mean(b2$time)/mean(b3$time)
 mean(b1$time)/mean(b3$time)
 ```
 
-Initial Clique Analysis
+# Initial Cluster Analysis
+
+## Clique Percolation
 ```{r}
 age <- 20
 g <- feature_networks[[age - 15]]
 g <- delete.vertices(g, degree(g)==0)
-res <- clique.community.opt(g,3)
+res <- clique.community.opt(g,4)
 
 ## Paint them to different colors
 colbar <- rainbow( length(res)+1 )
@@ -218,6 +223,28 @@ V(g)[ unlist(res)[ duplicated(unlist(res)) ] ]$color <- "red"
 ## Plot with the new colors
 plot(g, layout=layout_with_fr, vertex.label=V(g)$uni_lemma)
 ```
+
+## Walktrap 
+```{r}
+age <- 20
+g <- feature_networks[[age - 15]]
+g <- delete.vertices(g, degree(g)==0)
+res_w <- communities(cluster_walktrap(g))
+
+## Paint them to different colors
+colbar <- rainbow( length(res_w)+1 )
+for (i in seq(along=res_w)) {
+  V(g)[ res[[i]] ]$color <- colbar[i+1]
+}
+
+## Paint the vertices in multiple communities to red
+V(g)[ unlist(res_w)[ duplicated(unlist(res_w)) ] ]$color <- "red"
+
+## Plot with the new colors
+plot(g, layout=layout_with_fr, vertex.label=V(g)$uni_lemma)
+plt(res_w, g)
+```
+
 
 Dynamic Visualization
 ```{r}
