@@ -5,14 +5,29 @@ date: "`r Sys.Date()`"
 output:
   html_document:
     theme: default
-    df_print: paged
 ---
+# Background
+
+Questions
+
+1. Are shared features sufficient to form meaningful categories?
+2. Are some kinds of features more important than others?
+3. Are perceptual or conceptual features more important for forming superordinate categories?
+4. Are perceptual features a developmentally earlier source of categorical information?
+5. Are conceptual features  privileged in superordinate category formation?
+
+Hills intends to "take the feature correlation approach to build network representations, and then use the formalisms of graph theory to examine the noun–feature relationships in terms of the structure they provide." "By examining the small-world structure of early noun networks – as well as other graph- theoretic properties – we take a quantitative approach to evaluating the structural contributions of perceptual and conceptual features in the development of early categories." "What is needed [] is a better understanding of [perceptual and conceptual features'] inter-related roles in a larger system of developing categories."
+
+Hills intends to address these specific questions:
+
+1. Do features provide sufficient structure to infer common adult taxonomic categorizations among the nouns children know at 30 months of age?
+2. If so, what are the available categories?
+3. How robust are these categories to more or less stringent criteria for feature correlations?
+4. Do perceptual and conceptual features differ in the structure they provide – are some feature types more robust, more discriminating, or more redundant?
+
 # Networks
 
-## Setup
-
-First we import helper functions and configure RMarkdown.
-```{r message=FALSE, warning=FALSE} 
+```{r echo=FALSE, message=FALSE, warning=FALSE} 
 library(purrr) # fp library
 library(readr) # read text data files (csv, etc.)
 library(ggplot2) # plotting
@@ -36,16 +51,25 @@ source(paste(getwd(),"/helpers/all_helper.r",sep = ""), chdir = T)
 # knit_print.data.frame <- lemon_print # use kable when displaying tibbles in knit
 ```
 
-We begin by importing data from wordbank. Age of aquisition (in months, it starts with 16, 17,..) is that at which 50% of children can produce the word. We also do naive triming at this point, this means we are ignoring homophone/polysemy (chiken (food), chiken (animals), etc,.. but we will have to be careful in our choices if we are preparing later for publication.
+## Nouns
+
+Hills selected nouns from the Todler version of the MacArthur-Bates Communicative Developmental Inventory. This includes nouns which were aquired by 50% of children by 30 months.
+
+*This needs to be fixed to match Hills exactly*.
 ```{r warning=FALSE}
-# The "defintion" is the word, the "unilemma"" is the translation in English.
+# We begin by importing data from wordbank. Age of aquisition (in months, it starts with 16, 17,..) is that at which 50% of children can produce the word. We also do naive triming at this point, this means we are ignoring homophone/polysemy (chiken (food), chiken (animals), etc,.. but we will have to be careful in our choices if we are preparing later for publication.
 
 vocab <- make_vocab_dataframe(lang="English (American)",
                               lang_form = "WS",
                               lex_class = "nouns") %>%
   trim_all_unilemma() %>%
-  trim_all_definition() %>%
-  #distinct(uni_lemma, .keep_all = TRUE) # remove words with the same uni_lemma?
+  trim_all_definition()
+
+features <- load_features()
+
+vocab <- vocab %>%
+  filter(age <= 30) %>%
+  filter(uni_lemma %in% features$uni_lemma)
 ```
 
 ## Build Networks
@@ -57,17 +81,21 @@ perceptual_features = c("sound", "taste", "smell", "tactile",
                            "visual-form_and_surface", "visual-motion", "visual-color")
 conceptual_features = c("function")
 
-full_network <- feature_network(vocab, max_age = 30, shared_threshold = 1,
+full_network <- feature_network(vocab, features, shared_threshold = 1,
                                 feature_types = c(perceptual_features,
                                                   conceptual_features)) %>%
-                  set.graph.attribute("type", "both")
+                  set.graph.attribute("type", "both") %>%
+                  set.graph.attribute("age", 30)
 
-perceptual_network <- feature_network(vocab, max_age = 30, shared_threshold = 1,
+perceptual_network <- feature_network(vocab, features, shared_threshold = 1,
                                       feature_types = perceptual_features) %>%
-                        set.graph.attribute("type", "perceptual")
-conceptual_network <- feature_network(vocab, max_age = 30, shared_threshold = 1,
+                        set.graph.attribute("type", "perceptual") %>%
+                        set.graph.attribute("age", 30)
+
+conceptual_network <- feature_network(vocab, features, shared_threshold = 1,
                                       feature_types = conceptual_features) %>%
-                        set.graph.attribute("type", "conceptual")
+                        set.graph.attribute("type", "conceptual") %>%
+                        set.graph.attribute("age", 30)
 ```
 
 ## Basic Vocab and Feature Properties

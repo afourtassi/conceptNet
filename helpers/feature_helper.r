@@ -38,24 +38,23 @@ make_feature_pairs <- function(lemma_list, features) {
   return(item_pair_shared)
 }
 
-feature_network <- function(vocab, max_age, shared_threshold, feature_types, trim_to_macrae=TRUE) {
+load_features <- function() {
   features <- read_delim("data/MacRae.csv", delim = ",") %>%
     select(Concept, Feature, WB_Label, BR_Label) %>%
     rename(uni_lemma=Concept)
+  
+  return(features)
+}
 
-  vocab_up_to_age = vocab %>%
-    filter(age <= max_age)
-  feature_links <- make_feature_pairs(lemma_list = vocab_up_to_age,
+feature_network <- function(vocab, features, feature_types, shared_threshold) {
+  feature_links <- make_feature_pairs(lemma_list = vocab,
                                       features = filter(features, BR_Label %in% feature_types)) %>%
     filter(shared >= shared_threshold) %>%
     select(item, pair, shared)
-  if (trim_to_macrae) {
-    vocab_up_to_age <- filter(vocab_up_to_age,
-                              uni_lemma %in% features$uni_lemma)
-  }
+  
   graph <- graph_from_data_frame(feature_links, directed=FALSE,
-                                 vertices = vocab_up_to_age) %>%
-    set.graph.attribute("name", "Feature") %>%
-    set.graph.attribute("age", max_age)
+                                 vertices = vocab) %>%
+    set.graph.attribute("name", "Feature")
+  
   return(as_tbl_graph(graph))
 }
