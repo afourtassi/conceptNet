@@ -25,7 +25,7 @@ Hills intends to address these specific questions:
 3. How robust are these categories to more or less stringent criteria for feature correlations?
 4. Do perceptual and conceptual features differ in the structure they provide – are some feature types more robust, more discriminating, or more redundant?
 
-# Networks
+# Methods
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE} 
 library(purrr) # fp library
@@ -45,39 +45,48 @@ library(tibble) # modern dataframes
 library(tidygraph)
 library(doParallel)
 library(networkD3)
+library(ForceAtlas2)
 
 source(paste(getwd(),"/helpers/all_helper.r",sep = ""), chdir = T)
-
-# knit_print.data.frame <- lemon_print # use kable when displaying tibbles in knit
 ```
 
 ## Nouns
 
-Hills selected nouns from the Todler version of the MacArthur-Bates Communicative Developmental Inventory. This includes nouns which were aquired by 50% of children by 30 months.
+Hills selected nouns from the Todler version of the MacArthur-Bates Communicative Developmental Inventory. This includes nouns which were aquired by 50% of children by 30 months. *This needs to be fixed to match Hills exactly*.
 
-*This needs to be fixed to match Hills exactly*.
 ```{r warning=FALSE}
 # We begin by importing data from wordbank. Age of aquisition (in months, it starts with 16, 17,..) is that at which 50% of children can produce the word. We also do naive triming at this point, this means we are ignoring homophone/polysemy (chiken (food), chiken (animals), etc,.. but we will have to be careful in our choices if we are preparing later for publication.
 
-vocab <- make_vocab_dataframe(lang="English (American)",
+full_vocab <- make_vocab_dataframe(lang="English (American)",
                               lang_form = "WS",
                               lex_class = "nouns") %>%
   trim_all_unilemma() %>%
   trim_all_definition()
+```
 
+The initial vocabulary contains `r nrow(full_vocab)` (compared to Hills' 312).
+
+## Features
+
+Features taken from McRae et al. (2005), in which features were collected for 541 nouns from 725 adults, with 30 adults providing  14 features for each noun.
+
+```{r warning=FALSE}
 features <- load_features()
 
-vocab <- vocab %>%
+vocab <- full_vocab %>%
   filter(age <= 30) %>%
-  filter(uni_lemma %in% features$uni_lemma)
+  filter(uni_lemma %in% features$uni_lemma) %>%
+  distinct(uni_lemma, .keep_all = TRUE)
 ```
+
+Only the words for which feature data are available are considered, an overlap of `r nrow(vocab)` in our data compared to Hills' 130.
 
 ## Build Networks
 
-Next, we construct networks following the example of Hills. Using vocabulary obtained by 30 months and the same MacRae features as Hills, we construct networks from perceptual and conceptual features. We consider only words for which some feature data is available (though not necessarily perceptual or conceptual), and track the number of features that generate each edge.
+Using vocabulary obtained by 30 months and the same MacRae features as Hills, we construct networks from perceptual and conceptual features. We track the number of features that generate each edge.
 
 ```{r message=FALSE}
-perceptual_features = c("sound", "taste", "smell", "tactile", 
+perceptual_features = c("sound", "taste", "smell", "tactile",
                            "visual-form_and_surface", "visual-motion", "visual-color")
 conceptual_features = c("function")
 
@@ -98,11 +107,40 @@ conceptual_network <- feature_network(vocab, features, shared_threshold = 1,
                         set.graph.attribute("age", 30)
 ```
 
+# Results
+
+## The Full Network
+
+### Network statistics and small-world analyses
+
+```{r}
+# testing dense layout
+source(paste(getwd(),"/helpers/all_helper.r",sep = ""), chdir = T)
+
+plot_network(full_network %E>% filter(shared >= 2), remove_isolated = TRUE, labels=TRUE, frame=TRUE)
+```
+
+
+The full network is shown in the following figure, for w = 1, 2, 3, and 4.
+
+```{r out.width = '100%'}
+full_networks = list()
+for (w in 1:4) {
+  full_networks[[w]] = full_network %E>%
+    filter(shared >= w)
+}
+
+#par(mfcol=c(2, 2), mar=c(0.5,0.5,0.5,0.5))
+for (network in full_networks) {
+  plot_network(network, remove_isolated = FALSE, labels=TRUE, frame=TRUE)
+}
+```
+
+
+
+
+
 ## Basic Vocab and Feature Properties
-
-Compared to Hills' 130 nouns that overlapped the MacRae data and vocabulary data, we have `r vcount(perceptual_network)` nouns.
-
-*TODO extend*
 
 ## Basic Network Properties
 
@@ -144,12 +182,12 @@ for (w in 1:max_w) {
     activate(what = edges) %>%
     filter(shared >= w) %>%
     set.graph.attribute("w", w)
-    
+
   perceptual_networks[[w]] <- perceptual_network %>%
     activate(what = edges) %>%
     filter(shared >= w) %>%
     set.graph.attribute("w", w)
-  
+
   conceptual_networks[[w]] <- conceptual_network %>%
     activate(what = edges) %>%
     filter(shared >= w) %>%
@@ -190,7 +228,7 @@ display_our_properties <- our_network_properties %>% mutate_all(funs(format(., d
 display_hills_properties <- hills_network_properties %>% mutate_all(funs(paste("(", ., ")", sep='')))
 
 # combine text tables for display
-display_properties <- bind_rows(display_our_properties %>% mutate(row = 1:n()), 
+display_properties <- bind_rows(display_our_properties %>% mutate(row = 1:n()),
                                 display_hills_properties %>% mutate(row = 1:n())) %>%
   group_by(row) %>%
   summarise_if(is.character, funs(paste(., collapse=" "))) %>%
@@ -206,16 +244,6 @@ select(hills_network_properties, type, w) %>%
         align = rep("l", 7)) %>%
   kable_styling(full_width = F) %>%
   collapse_rows(columns = 1:2, valign = "top")
-```
-
-## Visualize Networks
-```{r out.width = '100%'}
-par(mfcol=c(3, 3), mar=c(0.5,0.5,0.5,0.5))
-for (n in networks[c(TRUE, TRUE, TRUE, FALSE, # display networks for w=1,2,3
-                     TRUE, TRUE, TRUE, FALSE,
-                     TRUE, TRUE, TRUE, FALSE)]) {
-  plot_network(n, remove_isolated = TRUE, frame=FALSE)
-}
 ```
 
 # Clusters

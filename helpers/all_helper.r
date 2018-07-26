@@ -1,5 +1,6 @@
 source("wb_helper.r")
 source("assoc_helper.r")
 source("feature_helper.r")
+source("word2vec_helper.r")
 source("plot_helper.r")
 source("clique_percolation.r")
