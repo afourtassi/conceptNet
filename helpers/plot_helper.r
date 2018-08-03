@@ -1,46 +1,62 @@
-plot_network <- function(g, name=NA, remove_isolated=FALSE, frame=FALSE, labels=FALSE, clusters=NULL) {
-  if (remove_isolated) {
-    g <- delete.vertices(g, degree(g)==0)
-  }
-  l <- layout_with_fr(g, niter = 500)
-  # l <- layout.forceatlas2(g,
-  #                         iterations=1500,
-  #                         plotstep=500,
-  #                         directed = FALSE,
-  #                         delta = 1,
-  #                         gravity = 100,
-  #                         k = 10000)
+layout_network <- function(g) {
+  l <- layout.forceatlas2(g %E>% select(weights),
+                          iterations=40000,
+                          plotstep=100000,
+                          directed = FALSE,
+                          delta = 3,
+                          gravity = 1,
+                          k = 10000)
   
-  # rescale
-  x_size <- max(l[,1]) - min(l[,1])
+  # move disconnected vertices to 0, 0
+  l[degree(g) == 0,] <- 0
+
+  # move them to bottom
   y_size <- max(l[,2]) - min(l[,2])
+  l[degree(g) == 0,2] <- min(l[,2]) - (y_size / 6)
+
+  # spread them out
+  num_disconnected <- length(l[degree(g) == 0,1])
+  x_size <- max(l[,1]) - min(l[,1])
+  l[degree(g) == 0,1] <- (0:(num_disconnected - 1) / (num_disconnected - 1)) * x_size + min(l[,1])
+  
+  return(l)
+}
+
+plot_network <- function(g, layout = NULL, name=NA, frame=FALSE, labels=FALSE, clusters=NULL, title = NULL) {
+  
+  # layout if no layout provided
+  if (is.null(layout)) {
+    layout <- layout_with_fr(g, niter = 500)
+  }
+  
+  # rescale layout
+  x_size <- max(layout[,1]) - min(layout[,1])
+  y_size <- max(layout[,2]) - min(layout[,2])
   max_size <- max(x_size, y_size)
   
-  l <- l / max_size
+  layout <- layout / max_size
   
+  # color clusters
   if (!is.null(clusters)) {
-    ## Paint them to different colors
-    colbar <- rainbow(length(clusters) + 1)
-    for (i in seq(along=clusters)) {
-      V(g)[ clusters[[i]] ]$color <- colbar[i+1]
-    }
+    V(g)$color <- clusters+1
     
     ## Paint the vertices in multiple communities to red
-    V(g)[ unlist(clusters)[ duplicated(unlist(clusters)) ] ]$color <- "red"
+    #V(g)[ unlist(clusters)[ duplicated(unlist(clusters)) ] ]$color <- "red"
   }
   
   if (labels) {
     plot(g,
-         layout=l,
+         layout=layout,
          frame=frame,
+         main=title,
          rescale=FALSE,
-         asp=0,
-         xlim=c(min(l[,1]), max(l[,1])),
-         ylim=c(min(l[,2]), max(l[,2])),
+         asp=y_size / x_size,
+         xlim=c(min(layout[,1]), max(layout[,1])),
+         ylim=c(min(layout[,2]), max(layout[,2])),
          
          # === vertex
-         vertex.color = rgb(0.0,0.0,0.7,0.5),                        # Node color
-         vertex.frame.color = NA,                 # Node border color
+         # vertex.color = rgb(0.0,0.0,0.7,0.5),                        # Node color
+         # vertex.frame.color = NA,                 # Node border color
          vertex.shape="circle",                        # One of “none”, “circle”, “square”, “csquare”, “rectangle” “crectangle”, “vrectangle”, “pie”, “raster”, or “sphere”
          vertex.size=2,                               # Size of the node (default is 15)
          vertex.size2=NA,                              # The second size of the node (e.g. for a rectangle)
@@ -50,8 +66,8 @@ plot_network <- function(g, name=NA, remove_isolated=FALSE, frame=FALSE, labels=
          vertex.label.color="black",
          vertex.label.family="Helvetica",                  # Font family of the label (e.g.“Times”, “Helvetica”)
          vertex.label.font=1,                          # Font: 1 plain, 2 bold, 3, italic, 4 bold italic, 5 symbol
-         vertex.label.cex=0.5,                           # Font size (multiplication factor, device-dependent)
-         vertex.label.dist=0.5,                          # Distance between the label and the vertex
+         vertex.label.cex=0.7,                           # Font size (multiplication factor, device-dependent)
+         vertex.label.dist=0.25,                          # Distance between the label and the vertex
          vertex.label.degree=pi/2 ,                       # The position of the label in relation to the vertex (use pi)
          
          # === Edge

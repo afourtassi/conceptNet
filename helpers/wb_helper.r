@@ -18,13 +18,13 @@ import_all_library<- function(){
 get_lang_item_data <- function(lang, lang_form = "WS", lex_class = "nouns") {
 
   item_data <- get_item_data(language = lang, form = lang_form) %>%
-    select(num_item_id, definition, type, lexical_class, uni_lemma) %>%
+    select(num_item_id, definition, type, lexical_class, uni_lemma, category) %>%
     filter(type == "word", lexical_class == lex_class) %>%
     rename(item = num_item_id)
   
   #Initialize every item as NA (NOT yet learnt)
   lang_item <- item_data %>%
-    select(item, definition, uni_lemma) %>%
+    select(item, definition, uni_lemma, category) %>%
     mutate(age = NA)
   
   return(lang_item)
@@ -35,6 +35,7 @@ get_lang_item_data <- function(lang, lang_form = "WS", lex_class = "nouns") {
 get_lang_admin_data <- function(lang, lang_form = "WS") {
   #get the kids' data_id from every age
   admin_data <- get_administration_data() %>%
+    filter(source_name == "Marchman (Norming)") %>%
     filter(form == lang_form, !is.na(production), language == lang) %>%
     select(data_id, age) %>%
     arrange(age)
