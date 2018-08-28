@@ -6,6 +6,13 @@ load_features <- function() {
   return(features)
 }
 
+filter_to_features <- function(vocab) {
+  features <- load_features()
+  
+  return (vocab %>%
+    filter(uni_lemma %in% features$Concept))
+}
+
 make_feature_links <- function(vocab, feature_types) {
   features <- load_features() %>%                  
     filter(Concept %in% vocab$uni_lemma) %>% # remove unneccessary features

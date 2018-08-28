@@ -197,3 +197,5 @@ TSWLatexianTemp*
 # standalone packages
 *.sta
 .DS_Store
+CFinder_commandline_mac
+licence.txt

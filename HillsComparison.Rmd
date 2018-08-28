@@ -1,0 +1,278 @@
+---
+title: "Comparison Word2Vec Analysis"
+author: "Isaac Scheinfeld"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: default
+---
+# Preparation
+
+This analysis requires a working copy of CFinder and the CFinder license in the same directory (necessary for running CFinder). The following must point to the command line executable:
+
+```{r}
+cfinder_program <- "./CFinder_commandline_mac"
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE} 
+library(purrr) # fp library
+library(readr) # read text data files (csv, etc.)
+library(ggplot2) # plotting
+library(langcog) # useful things used by Language and Cognition Lab
+library(dplyr) # for working with datafram-like objects
+library(tidyr) # for data tidying
+library(wordbankr) # access to wordbank data
+library(stringr) # common string operations
+library(broom) # converts R function outputs to tidy data frames
+library(igraph) # network analysis and visualization
+library(knitr) # general-purpose tool for dynamic report generation
+library(kableExtra) # table formatting
+library(lemon) # functions for working w/ ggplot2 and knitr extensions
+library(tibble) # modern dataframes
+library(tidygraph)
+library(doParallel)
+library(networkD3)
+library(viridis)
+
+source(paste(getwd(),"/helpers/all_helper.r",sep = ""), chdir = T)
+```
+
+## Nouns
+
+We begin with roughly the same data used by Hills. *(TODO fix, get same data)*
+
+```{r warning=FALSE}
+# We begin by importing data from wordbank. Age of aquisition (in months, it starts with 16, 17,..) is that at which 50% of children can produce the word. We also do naive triming at this point, this means we are ignoring homophone/polysemy (chiken (food), chiken (animals), etc,.. but we will have to be careful in our choices if we are preparing later for publication.
+
+full_vocab <- make_vocab_dataframe(lang="English (American)",
+                                   lang_form = "WS",
+                                   lex_class = "nouns") %>%
+  trim_all_unilemma() %>%
+  trim_all_definition() %>%
+  arrange(age) %>%            # keep first age for duplicates
+  distinct(uni_lemma, .keep_all = TRUE) %>%
+  select(uni_lemma, definition, age, category)
+```
+
+The initial vocabulary contains `r nrow(full_vocab)` (compared to Hills' 312).
+
+## Features and Word2Vec
+
+Features taken from McRae et al. (2005), in which features were collected for 541 nouns from 725 adults, with 30 adults providing 14 features for each noun. Word2Vec similarities are from child directed speach (source Abdellah).
+
+```{r warning=FALSE, message=FALSE}
+vocab <- full_vocab %>%
+  filter(age <= 30) %>%
+  filter_to_features() %>%
+  filter_to_w2v()
+```
+
+Filtering to this data gives a vocab of `r nrow(vocab)`.
+
+## Build Network
+
+Using this vocabulary, we construct a network with edge attributes for features, and for word2vec similarity.
+
+```{r message=FALSE}
+# perceptual and conceptual McRae feature types
+perceptual_features = c("sound", "taste", "smell", "tactile",
+                        "visual-form_and_surface", "visual-motion", "visual-color")
+conceptual_features = c("function")
+
+# count shared features between words in vocabulary
+feature_links <- make_feature_links(vocab = vocab,
+                                    feature_types = union(perceptual_features,
+                                                          conceptual_features))
+
+# get word2vec distance between words in vocabulary
+w2v_links <- make_w2v_links(vocab = vocab) #TODO still problem w/ vocab matching w2v data
+
+links <- full_join(feature_links, w2v_links, by=c("from", "to"))
+
+network <- graph_from_data_frame(links, vertices = vocab, directed = FALSE) %>%
+  as_tbl_graph() %E>%
+  mutate(shared = replace_na(shared, as.integer(0))) # is this replacement necessary?
+```
+
+# Results
+
+## Word2Vec vs Feature Network
+
+```{r out.width = '25%', fig.asp=1, fig.show = 'hold'}
+par(oma=c(0,0,0.2,0))
+
+ecounts <- list()
+for (w in 1:4) {
+  net <- network %E>% filter(shared >= w)
+  ecounts[[length(ecounts) + 1]] <- ecount(net)
+  layout <- layout_with_fr(net)
+  plot_vocab_network(net,
+                     plot_title = title(str_glue("Features w={w}"), cex.main = 2),
+                     frame=FALSE, layout = layout, labels="")
+}
+
+# find thresholds that give matching edge counts
+thresholds <- list()
+for (i in seq_along(ecounts)) {
+  e <- ecounts[[i]]
+  curr_pow <- 1
+  curr_e <- 0
+  curr_t <- 1
+  while (as.integer(curr_e) != as.integer(e)) {
+    if (curr_e < e) {
+      curr_t <- curr_t - (1/2) ^ curr_pow
+    } else {
+      curr_t <- curr_t + (1/2) ^ curr_pow
+    }
+    curr_e <- ecount(network %E>% filter(w2v_similarity >= curr_t))
+    curr_pow <- curr_pow + 1
+  }
+  thresholds[[length(thresholds) + 1]] <- curr_t
+}
+
+for (w in thresholds) {
+  net <- network %E>% filter(w2v_similarity >= w)
+  layout <- layout_with_fr(net)
+  plot_vocab_network(net, plot_title = title(str_glue("Word2Vec w={format(w,digits=3)}"), cex.main = 2),
+                     frame=FALSE, layout = layout, labels="")
+}
+
+```
+
+```{r}
+network_properties <- function(network) {
+  return( tibble(
+    type = network$type,
+    w = network$w,
+    avg_distance = mean_distance(network),
+    clustering_coef = transitivity(network),
+    isolates = sum(degree(network) == 0),
+    components = count_components(network) - isolates
+  ))
+}
+
+feature_networks <- map(1:4, function(w) {
+  network %>%
+    filter(shared >= w) %>%
+    set.graph.attribute("type", "Feature") %>%
+    set.graph.attribute("w",w)})
+w2v_networks <- map(thresholds, function(w) {
+  network %>%
+    filter(w2v_similarity >= w) %>%
+    set.graph.attribute("type", "Word2Vec") %>%
+    set.graph.attribute("w",w)}
+)
+
+feature_properties <- bind_rows(map(feature_networks, network_properties))
+w2v_properties <- bind_rows(map(w2v_networks, network_properties))
+
+bind_rows(feature_properties, w2v_properties) %>%
+  kable(format="html",
+        escape = FALSE,
+        col.names = c("Type", "w",
+                      "Clustering Coefficient",
+                      "Average length",
+                      "Components",
+                      "Isolates"),
+        align = rep("l",6),
+        digits = 2) %>%
+  kable_styling(full_width = F) %>%
+  collapse_rows(columns = 1, valign = "top")
+```
+
+## Clique Percolation
+
+We can now compare clique percolation on feature and word2vec networks.
+
+```{r}
+best_count <-  0
+for (w in 1:5) {
+  result <- cluster_cfinder(network %E>% filter(shared >= w),
+                            cfinder_program = cfinder_program)
+  clusters <- result$clusters
+  k <- result$k
+  if (length(clusters) > best_count) {
+    best_w <- w
+    best_k <- k
+    best_count <- length(clusters)
+    best_clusters <- clusters
+  }
+}
+
+title <- str_glue("Feature Network Clique Percolation Clusters, w = {best_w} and k = {best_k}")
+kable_clusters(best_clusters, title)
+```
+
+We can compare this to the corresponding clustering on the word2vec network with the same density, using the same parameters.
+
+```{r}
+clusters <- cluster_cfinder(network %E>%
+                              filter(w2v_similarity >= thresholds[[best_w]]),
+                            k = best_k,
+                            cfinder_program = cfinder_program)$clusters
+
+title <- str_glue("Word2Vec Network Clique Percolation Clusters, w = {format(thresholds[[best_w]], digits=2)} and k = {best_k}")
+kable_clusters(clusters, title)
+```
+
+We can also search for parameters for the word2vec network using Hills' approach. Note that
+w is given a lower bound of 0.25 as below this the network is too dense for cfinder to compute the clusters in a minute or less.
+
+```{r}
+best_count <-  0
+for (w in seq(0.25,0.9,0.05)) {
+  result <- cluster_cfinder(network %E>% filter(w2v_similarity >= w),
+                            cfinder_program = cfinder_program)
+  clusters <- result$clusters
+  k <- result$k
+  if (length(clusters) > best_count) {
+    best_w <- w
+    best_k <- k
+    best_count <- length(clusters)
+    best_clusters <- clusters
+  }
+}
+
+title <- str_glue("Word2Vec Network Clique Percolation Clusters, w = {best_w} and k = {best_k}")
+kable_clusters(best_clusters, title)
+```
+
+## Other Clustering Algorithms
+
+We can cluster both the feature and word2vec networks using other clustering algorithms.
+
+### Walktrap
+
+```{r}
+clusters <- cluster_walktrap(network, weights = E(network)$shared) # NA weights are treated as 0
+kable_clusters(clusters, title = "Feature Network Walktrap Clusters")
+```
+
+```{r}
+clusters <- cluster_walktrap(network, weights = E(network)$w2v_similarity)
+kable_clusters(clusters, title = "Word2Vec Network Walktrap Clusters")
+```
+
+### Louvain
+
+```{r}
+clusters <- cluster_louvain(network, weights = E(network)$shared) # NA weights are treated as 0
+kable_clusters(clusters, title = "Feature Network Louvain Clusters")
+```
+
+```{r}
+clusters <- cluster_louvain(network, weights = E(network)$w2v_similarity)
+kable_clusters(clusters, title = "Word2Vec Network Louvain Clusters")
+```
+
+### Spinglass
+
+```{r}
+clusters <- cluster_spinglass(network, weights = E(network)$shared) # NA weights are treated as 0
+kable_clusters(clusters, title = "Feature Network Spinglass Clusters")
+```
+
+```{r}
+clusters <- cluster_spinglass(network, weights = E(network)$w2v_similarity)
+kable_clusters(clusters, title = "Word2Vec Network Spinglass Clusters")
+```

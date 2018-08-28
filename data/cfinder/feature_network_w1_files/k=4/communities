@@ -1,9 +1,0 @@
-# The communities at k=4
-# from /Users/ischeinfeld/Documents/research/conceptNet/data/cfinder/feature_network_w1
-# at no lower link weight threshold,
-# and at no upper link weight threshold.
-# Links were treated as undirected.
-# No time limit was set for the clique search.
-
-0: 43 101 102 23 90 
-1: 0 104 107 12 18 19 20 22 25 27 32 33 39 48 49 5 50 51 66 70 77 79 80 81 82 84 1 10 11 15 2 31 35 37 40 43 45 56 57 65 8 85 94 95 98 99 36 55 58 73 74 100 101 109 103 105 106 108 24 28 30 54 61 64 83 110 112 13 34 41 63 93 96 14 17 21 26 42 44 47 52 67 68 71 75 78 89 91 46 62 72 76 88 92 53 16 23 4 59 9 111 29 38 60 87 69 86 97 6 7 

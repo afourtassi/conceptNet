@@ -25,7 +25,14 @@ Hills intends to address these specific questions:
 3. How robust are these categories to more or less stringent criteria for feature correlations?
 4. Do perceptual and conceptual features differ in the structure they provide – are some feature types more robust, more discriminating, or more redundant?
 
-# Methods
+# Preparation
+
+This analysis requires a working copy of CFinder and the CFinder license in the same directory (necessary for running CFinder). The following must point to the command line executable:
+
+```{r}
+cfinder_program <- "./CFinder_commandline_mac"
+```
+
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE} 
 library(purrr) # fp library
@@ -45,7 +52,8 @@ library(tibble) # modern dataframes
 library(tidygraph)
 library(doParallel)
 library(networkD3)
-library(ForceAtlas2)
+library(formattable)
+library(viridis)
 
 source(paste(getwd(),"/helpers/all_helper.r",sep = ""), chdir = T)
 ```
@@ -58,28 +66,28 @@ Hills selected nouns from the Todler version of the MacArthur-Bates Communicativ
 # We begin by importing data from wordbank. Age of aquisition (in months, it starts with 16, 17,..) is that at which 50% of children can produce the word. We also do naive triming at this point, this means we are ignoring homophone/polysemy (chiken (food), chiken (animals), etc,.. but we will have to be careful in our choices if we are preparing later for publication.
 
 full_vocab <- make_vocab_dataframe(lang="English (American)",
-                              lang_form = "WS",
-                              lex_class = "nouns") %>%
+                                   lang_form = "WS",
+                                   lex_class = "nouns") %>%
   trim_all_unilemma() %>%
-  trim_all_definition()
+  trim_all_definition() %>%
+  arrange(age) %>%            # keep first age for duplicates arising from trimming
+  distinct(uni_lemma, .keep_all = TRUE) %>%
+  select(uni_lemma, definition, age, category)
 ```
 
 The initial vocabulary contains `r nrow(full_vocab)` (compared to Hills' 312).
 
 ## Features
 
-Features taken from McRae et al. (2005), in which features were collected for 541 nouns from 725 adults, with 30 adults providing  14 features for each noun.
+Features taken from McRae et al. (2005), in which features were collected for 541 nouns from 725 adults, with 30 adults providing 14 features for each noun.
 
-```{r warning=FALSE}
-features <- load_features()
-
+```{r warning=FALSE, message=FALSE}
 vocab <- full_vocab %>%
   filter(age <= 30) %>%
-  filter(uni_lemma %in% features$uni_lemma) %>%
-  distinct(uni_lemma, .keep_all = TRUE)
+  filter_to_features()
 ```
 
-Only the words for which feature data are available are considered, an overlap of `r nrow(vocab)` in our data compared to Hills' 130.
+Only the words aquired by 30 months for which feature data are available are considered, an overlap of `r nrow(vocab)` in our data compared to Hills' 130.
 
 ## Build Networks
 
@@ -90,198 +98,223 @@ perceptual_features = c("sound", "taste", "smell", "tactile",
                            "visual-form_and_surface", "visual-motion", "visual-color")
 conceptual_features = c("function")
 
-full_network <- feature_network(vocab, features, shared_threshold = 1,
-                                feature_types = c(perceptual_features,
-                                                  conceptual_features)) %>%
-                  set.graph.attribute("type", "both") %>%
-                  set.graph.attribute("age", 30)
+feature_links <-
+  make_feature_links(vocab = vocab, feature_types = union(perceptual_features, conceptual_features))
+perceptual_links <-
+  make_feature_links(vocab = vocab, feature_types = perceptual_features)
+conceptual_links <-
+  make_feature_links(vocab = vocab, feature_types = conceptual_features)
 
-perceptual_network <- feature_network(vocab, features, shared_threshold = 1,
-                                      feature_types = perceptual_features) %>%
-                        set.graph.attribute("type", "perceptual") %>%
-                        set.graph.attribute("age", 30)
+feature_network <- graph_from_data_frame(feature_links, vertices = vocab, directed = FALSE) %>%
+  as_tbl_graph() %E>%
+  mutate(weight = shared) %>%
+  set.graph.attribute("type", "Features") %>%
+  set.graph.attribute("age", 30)
 
-conceptual_network <- feature_network(vocab, features, shared_threshold = 1,
-                                      feature_types = conceptual_features) %>%
-                        set.graph.attribute("type", "conceptual") %>%
-                        set.graph.attribute("age", 30)
+perceptual_network <- graph_from_data_frame(perceptual_links, vertices = vocab, directed = FALSE) %>%
+  as_tbl_graph() %E>%
+  mutate(weight = shared) %>%
+  set.graph.attribute("type", "Perceptual") %>%
+  set.graph.attribute("age", 30)
+
+conceptual_network <- graph_from_data_frame(conceptual_links, vertices = vocab, directed = FALSE) %>%
+  as_tbl_graph() %E>%
+  mutate(weight = shared) %>%
+  set.graph.attribute("type", "Conceptual") %>%
+  set.graph.attribute("age", 30)
 ```
 
 # Results
 
-## The Full Network
+## Network statistics and small-world analyses
 
-### Network statistics and small-world analyses
+The network are shown in the following figure, for w = 1, 2, 3, and 4.
 
-```{r}
-# testing dense layout
-source(paste(getwd(),"/helpers/all_helper.r",sep = ""), chdir = T)
+```{r out.width = '25%', fig.asp=1}
+par(oma=c(0,0,0.2,0))
 
-plot_network(full_network %E>% filter(shared >= 2), remove_isolated = TRUE, labels=TRUE, frame=TRUE)
-```
-
-
-The full network is shown in the following figure, for w = 1, 2, 3, and 4.
-
-```{r out.width = '100%'}
-full_networks = list()
-for (w in 1:4) {
-  full_networks[[w]] = full_network %E>%
-    filter(shared >= w)
-}
-
-#par(mfcol=c(2, 2), mar=c(0.5,0.5,0.5,0.5))
-for (network in full_networks) {
-  plot_network(network, remove_isolated = FALSE, labels=TRUE, frame=TRUE)
+for (network in list(feature_network, perceptual_network, conceptual_network)) {
+  for (w in 1:4) {
+    net <- network %E>% filter(shared >= w)
+    layout <- layout_with_fr(net)
+    plot_vocab_network(net, plot_title = title(str_glue("{net$type} w={w}"), cex.main=2), frame=FALSE, layout = layout, labels="")
+  }
 }
 ```
-
-
-
-
-
-## Basic Vocab and Feature Properties
-
-## Basic Network Properties
 
 Some basic properties of networks built from perceptual and conceptual features.
+
 ```{r, results='asis'}
+network_properties <- function(network) {
+  return( tibble(
+    type = network$type,
+    age = network$age,
+    w = network$w,
+    vertices = vcount(network),
+    edges = ecount(network),
+    avg_degree = mean(degree(network)),
+    avg_distance = mean_distance(network),
+    diameter = diameter(network),
+    clustering_coef = transitivity(network),
+    density = edges / (vertices * (vertices - 1) / 2),
+    clustering_coefficient_random = density,
+    isolates = sum(degree(network) == 0),
+    components = count_components(network) - isolates
+  ))
+}
+
 max_w <- 4
 
-network_properties <- function(networks) {
-  return( tibble(
-  name = map_chr(networks, ~ .x$name),
-  type = map_chr(networks, ~ .x$type),
-  age = map_dbl(networks, ~ .x$age) %>%
-    as.integer(),
-  w = map_dbl(networks, ~ .x$w) %>%
-    as.integer(),
-  vertices = map_int(networks, vcount),
-  edges = map_dbl(networks, ecount) %>%
-    as.integer(), # for some reason igraph ecount returns double
-  avg_degree = map(networks, degree) %>%
-    map_dbl(mean),
-  avg_shortest_path = map_dbl(networks, mean_distance),
-  diameter = map_dbl(networks, diameter) %>%
-    as.integer(),
-  clustering_coefficient = map_dbl(networks, transitivity),
-  density = edges / (vertices * (vertices - 1) / 2),
-  avg_shortest_path_random = 0, # either estimate or calculate values for random nets
-  diameter_random = 0,
-  clustering_coefficient_random = density,
-  isolates = map_dbl(networks, function (g) sum(degree(g) == 0)),
-  components = map_dbl(networks, count_components) %>%
-    as.integer() - isolates))
-}
-
-full_networks <- list()
-perceptual_networks <- list()
-conceptual_networks <- list()
-for (w in 1:max_w) {
-  full_networks[[w]] <- full_network %>%
-    activate(what = edges) %>%
+feature_networks <- map(1:max_w, function(w) {
+  feature_network %>%
     filter(shared >= w) %>%
-    set.graph.attribute("w", w)
-
-  perceptual_networks[[w]] <- perceptual_network %>%
-    activate(what = edges) %>%
+    set.graph.attribute("w",w)})
+perceptual_networks <- map(1:max_w, function(w) {
+  perceptual_network %>%
     filter(shared >= w) %>%
-    set.graph.attribute("w", w)
-
-  conceptual_networks[[w]] <- conceptual_network %>%
-    activate(what = edges) %>%
+    set.graph.attribute("w",w)})
+conceptual_networks <- map(1:max_w, function(w) {
+  conceptual_network %>%
     filter(shared >= w) %>%
-    set.graph.attribute("w", w)
-}
+    set.graph.attribute("w",w)})
 
-networks <- full_networks %>%
+networks <- feature_networks %>%
   append(perceptual_networks) %>%
   append(conceptual_networks)
 
-our_network_properties <- network_properties(networks)
-
-our_network_properties %>%
-  select(type, w, vertices, edges, avg_degree, diameter, avg_shortest_path, clustering_coefficient) %>%
-  kable(format="html",
-        escape = FALSE,
-        col.names = c("Type", "w", "V", "E", "Average degree", "Diameter", "Average length", "Clustering coefficient"),
-        digits = 2,
-        align = rep("l", 8)) %>%
-  kable_styling(full_width = F) %>%
-  collapse_rows(columns = 1:3, valign = "top")
+properties <- bind_rows(map(networks, network_properties))
 ```
 
 We can compare these networks to those from Hills, noting that we have a different set of words/nodes but that the induced subgraph of those words shared between our analysis and that of Hills should be the same.
+
 ```{r}
-hills_network_properties <- tibble( # table from Hills 2009
-  type = c(rep("all", times=4), rep("perceptual", times=4), rep("conceptual", 4)),
-  w = c(1:max_w, 1:max_w, 1:max_w),
-  clustering_coefficient = c(0.55, 0.54, 0.58, 0.60, 0.54, 0.54, 0.62, 0.62, 0.88, 0.59, 0.38, 1.00),
-  avg_shortest_path = c(1.72, 2.57, 4.96, 3.22, 1.76, 2.69, 5.02, 2.55, 3.08, 1.59, 5.02, 1.00),
-  density = c(0.29, 0.10, 0.04, 0.02, 0.27, 0.08, 0.03, 0.01, 0.05, 0.01, 0.0, 0.0),
-  components = c(1, 1, 4, 10, 1, 2, 8, 11, 7, 14, 7, 2),
-  isolates = c(0, 6, 20, 47, 0, 10, 31, 69, 33, 81, 113, 126)
-)
-
-# convert contents to text
-display_our_properties <- our_network_properties %>% mutate_all(funs(format(., digits=2, trim=TRUE)))
-display_hills_properties <- hills_network_properties %>% mutate_all(funs(paste("(", ., ")", sep='')))
-
-# combine text tables for display
-display_properties <- bind_rows(display_our_properties %>% mutate(row = 1:n()),
-                                display_hills_properties %>% mutate(row = 1:n())) %>%
-  group_by(row) %>%
-  summarise_if(is.character, funs(paste(., collapse=" "))) %>%
-  arrange(row)
-
-# display combined properties
-select(hills_network_properties, type, w) %>%
-  bind_cols(select(display_properties, clustering_coefficient, avg_shortest_path,
-                   density, components, isolates)) %>%
+properties %>%
+  mutate(h_clustering_coef = c(0.55, 0.54, 0.58, 0.60, 0.54, 0.54, 0.62, 0.62, 0.88, 0.59, 0.38, 1.00),
+         h_avg_distance = c(1.72, 2.57, 4.96, 3.22, 1.76, 2.69, 5.02, 2.55, 3.08, 1.59, 5.02, 1.00),
+         h_density = c(0.29, 0.10, 0.04, 0.02, 0.27, 0.08, 0.03, 0.01, 0.05, 0.01, 0.0, 0.0),
+         h_components = c(1, 1, 4, 10, 1, 2, 8, 11, 7, 14, 7, 2),
+         h_isolates = c(0, 6, 20, 47, 0, 10, 31, 69, 33, 81, 113, 126)) %>%
+  select(type, age, w,
+         clustering_coef, h_clustering_coef,
+         avg_distance, h_avg_distance,
+         density, h_density,
+         components, h_components,
+         isolates, h_isolates) %>%
   kable(format="html",
         escape = FALSE,
-        col.names = c("Type", "w", "Clustering Coefficient", "Average length", "Density", "Components", "Isolates"),
-        align = rep("l", 7)) %>%
+        col.names = c("Type", "age", "w",
+                      "Clustering Coefficient", "",
+                      "Average length", "",
+                      "Density", "",
+                      "Components", "",
+                      "Isolates", ""),
+        align = c("l", "l", "l", rep(c("r", "l"), 5)),
+        digits = 2) %>%
   kable_styling(full_width = F) %>%
+  column_spec(seq(5,13,2), color = "grey") %>%
   collapse_rows(columns = 1:2, valign = "top")
 ```
 
-# Clusters
+## Clique Percolation Clustering
 
-## Visualize Networks
-```{r out.width = '100%'}
-networks <- perceptual_networks[2]
-```
+### Full Network
 
-## Clique Percolation
+Here we find parameter values for clique percolation according to the "principled approach" given in Hills, raising k for a given w until the the second largest cluster is greater than half the size of the largest, and then choosing the k for which this gives the most clusters.
 
-Initial Clique Analysis
-```{r out.width = '100%'}
-trimmed_networks <- map(networks, function (g) delete.vertices(g, degree(g)==0))
-
-# cl <- makeCluster(3)
-# registerDoParallel(cl)
-# getDoParWorkers()
-## Plot with the new colors
-for (net in networks) {
-  for (k in 3:4) {
-    clusters <- clique.community.opt(net,k)
-    plot_network(net, clusters = clusters, labels=FALSE)
+```{r}
+best_count <-  0
+for (w in 1:5) {
+  result <- cluster_cfinder(feature_network %E>% filter(shared >= w),
+                            cfinder_program = cfinder_program)
+  clusters <- result$clusters
+  k <- result$k
+  if (length(clusters) > best_count) {
+    best_w <- w
+    best_k <- k
+    best_count <- length(clusters)
+    best_clusters <- clusters
   }
 }
-# stopCluster(cl)
 ```
 
-Dynamic Visualization
+This gives values of w=`r best_w` and k=`r best_k`, as opposed to Hills' w=3 and k=3, and gives the following clusters:
+
 ```{r}
-conceptual_clusters <- membership(cluster_walktrap(conceptual_network))
-
-# Convert to object suitable for networkD3
-conceptual_d3 <- igraph_to_networkD3(conceptual_network, group = conceptual_clusters)
-
-# Create force directed network plot
-forceNetwork(Links = conceptual_d3$links, Nodes = conceptual_d3$nodes,
-             Source = 'source', Target = 'target', NodeID = 'name',
-             Group = 'group')
+title <- str_glue("Feature Network Clique Percolation Clusters, w = {best_w} and k = {best_k}")
+kable_clusters(best_clusters, title)
 ```
 
+Hills' values of w=3 and k=3 also give reasonable clusters:
+
+```{r}
+clusters <- cluster_cfinder(feature_network %E>% filter(shared >= 3),
+                            k = 3,
+                            cfinder_program = cfinder_program)$clusters
+kable_clusters(clusters, "Feature Network Clique Percolation Clusters, w = 3 and k = 3")
+```
+
+Note that this difference may be due to the minor differences between our networks. The largest cluster produced by w=3, k=3 is only one larger than twice the size of the second largest, and had it been smaller these parameters would have returned more clusters (and thus been selected) than w=`r best_w` and k=`r best_k`. However, these minor differences do lead to substantially different clusterings.
+
+
+### Perceptual Network
+
+Here we find parameter values for clique percolation on the perceptual network.
+
+```{r}
+best_count <-  0
+for (w in 1:5) {
+  result <- cluster_cfinder(perceptual_network %E>% filter(shared >= w),
+                            cfinder_program = cfinder_program)
+  clusters <- result$clusters
+  k <- result$k
+  if (length(clusters) > best_count) {
+    best_w <- w
+    best_k <- k
+    best_count <- length(clusters)
+    best_clusters <- clusters
+  }
+}
+```
+
+This gives values of w=`r best_w` and k=`r best_k`, as opposed to Hills' w=2 and k=5, and gives the following clusters:
+
+```{r}
+title <- str_glue("Perceptual Network Clique Percolation Clusters, w = {best_w} and k = {best_k}")
+kable_clusters(best_clusters, title)
+```
+
+Hills' values of w=2 and k=5 also give reasonable clusters:
+
+```{r}
+clusters <- cluster_cfinder(perceptual_network %E>% filter(shared >= 2),
+                            k = 5,
+                            cfinder_program = cfinder_program)$clusters
+kable_clusters(clusters, "Feature Network Clique Percolation Clusters, w = 2 and k = 5")
+```
+
+### Conceptual Network
+
+Here we find parameter values for clique percolation on the conceptual network.
+
+```{r}
+best_count <-  0
+for (w in 1:5) {
+  result <- cluster_cfinder(conceptual_network %E>% filter(shared >= w),
+                            cfinder_program = cfinder_program)
+  clusters <- result$clusters
+  k <- result$k
+  if (length(clusters) > best_count) {
+    best_w <- w
+    best_k <- k
+    best_count <- length(clusters)
+    best_clusters <- clusters
+  }
+}
+```
+
+This gives values of w=`r best_w` and k=`r best_k`, matching Hills' w=1 and k=3, and gives the following clusters:
+
+```{r}
+title <- str_glue("Conceptual Network Clique Percolation Clusters, w = {best_w} and k = {best_k}")
+kable_clusters(best_clusters, title)
+```

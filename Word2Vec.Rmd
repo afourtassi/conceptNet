@@ -1,0 +1,162 @@
+---
+title: "Word2Vec Analysis"
+author: "Isaac Scheinfeld"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: default
+---
+# Networks
+
+This report explores the clustering of nouns aquired by 16 - 30 month old children using word2vec similarity, and the dynamics of those clusters.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE} 
+library(purrr) # fp library
+library(readr) # read text data files (csv, etc.)
+library(ggplot2) # plotting
+library(langcog) # useful things used by Language and Cognition Lab
+library(dplyr) # for working with datafram-like objects
+library(tidyr) # for data tidying
+library(wordbankr) # access to wordbank data
+library(stringr) # common string operations
+library(broom) # converts R function outputs to tidy data frames
+library(igraph) # network analysis and visualization
+library(knitr) # general-purpose tool for dynamic report generation
+library(kableExtra) # table formatting
+library(lemon) # functions for working w/ ggplot2 and knitr extensions
+library(tibble) # modern dataframes
+library(tidygraph)
+library(doParallel)
+library(networkD3)
+library(viridis)
+library(riverplot) # install from github at ischeinfeld/riverplot to hide debug messages in CRAN package
+library(ggm)
+library(networkD3)
+
+source(paste(getwd(),"/helpers/all_helper.r",sep = ""), chdir = T)
+```
+
+## Nouns
+
+We begin by importing data from wordbank. Age of aquisition (in months, it starts with 16, 17,..) is that at which 50% of children can produce the word. We also do naive triming at this point, this means we are ignoring homophone/polysemy (chiken (food), chiken (animals), etc,.. but we will have to be careful in our choices if we are preparing later for publication.
+
+```{r warning=FALSE}
+full_vocab <- make_vocab_dataframe(lang="English (American)",
+                                   lang_form = "WS",
+                                   lex_class = "nouns") %>%
+  trim_all_unilemma() %>%
+  trim_all_definition() %>%
+  arrange(age) %>%            # keep first age for duplicates
+  distinct(uni_lemma, .keep_all = TRUE) %>%
+  select(uni_lemma, definition, age, category)
+```
+
+The initial vocabulary contains `r nrow(full_vocab)` words.
+
+## Word2Vec
+
+Features taken from McRae et al. (2005), in which features were collected for 541 nouns from 725 adults, with 30 adults providing 14 features for each noun. Word2Vec similarities are from child directed speach (source Abdellah).
+
+```{r warning=FALSE, message=FALSE}
+vocab <- full_vocab %>%
+  filter(age <= 30) %>%
+  filter_to_w2v()
+```
+
+To begin our analysis, we only consider the words for which word2vec data are available, an overlap of `r nrow(vocab)` in our data. The missing words are `r setdiff(full_vocab$uni_lemma, vocab$uni_lemma)`.
+
+## Build Network
+
+We construct a network with an edge attribute for word2vec similarity.
+
+```{r message=FALSE}
+w2v_links <- make_w2v_links(vocab = vocab) #TODO still problem w/ vocab matching w2v data
+
+network <- graph_from_data_frame(w2v_links, vertices = vocab, directed = FALSE) %>%
+  as_tbl_graph() %E>%
+  mutate(weight = w2v_similarity) # layout and clustering algorithms automatically use the weight attribute
+```
+
+# Analysis
+
+## Layout the Network
+
+First we generate a display layout for the network, based on the word2vec data.
+
+```{r out.width = '100%', fig.asp = 1, dpi=300}
+if (FALSE) {
+  layout <- layout_network(network)
+  saveRDS(layout, file = "layout.rds")
+} else {
+  layout <- readRDS(file = "layout.rds")
+}
+  
+network <- network %N>%
+  mutate(x = layout[,1]) %>%
+  mutate(y = layout[,2])
+
+plot_vocab_network(network,
+                   frame=FALSE,
+                   plot_title=title("Word2Vec Network",cex.main=1),
+                   labels="",
+                   edge_color = rgb(0,0,0,alpha = (E(network)$weight)^(5/2)))
+
+
+```
+
+## Clustering algorithms {.tabset}
+
+### Walktrap
+
+```{r out.width='33%', fig.asp=1, dpi=300, results='asis'}
+par(oma=c(0,0,0.2,0))
+
+for (age_limit in seq(16, 30, by=2)) {
+
+  net <- network %N>% filter(age <= age_limit)
+  clusters <- cluster_walktrap(net,
+                               weights = E(net)$w2v_similarity)
+  
+  filename <- str_glue("images/walktrap_network_{age_limit}.png")
+  png(filename=filename)
+  plot_vocab_network(network %N>%
+                       filter(age <= age_limit),
+                     clusters = clusters$membership,
+                     frame = FALSE,
+                     labels = "",
+                     edge_color = rgb(0,0,0,alpha = (E(network)$weight)^(5/2)))
+  dev.off()
+  
+  cat("<table style='width:100%'><col width='30%'><col width='70%'><tr>")
+  
+  cat("<td valign='top'>")
+
+  cat(str_glue('<img src="{filename}">'))
+  
+  cat("</td><td valign='top'>")
+  
+  print(kable_clusters(clusters,
+                 title=str_glue("Age = {age_limit} Months")))
+  cat("</tr></table>")
+  
+
+}
+```
+
+
+#### River Plot
+
+```{r}
+subgraphs_by_age <- get_subgraphs_by_age(network, cluster_walktrap)
+```
+
+```{r out.width='100%'}
+#out.width='100%', fig.asp=1, dpi=300
+river <- cluster_river(subgraphs_by_age = subgraphs_by_age)
+
+plot(river, gravity = "center", plot_area = 0.8)
+```
+
+```{r}
+suppressWarnings(precursors_graph(subgraphs_by_age, 0)) %>% plot_river_network()
+```

@@ -19,6 +19,13 @@ trim_w2v <- function(w2v) {
   return(w2v)
 }
 
+filter_to_w2v <- function(vocab) {
+  w2v <- load_w2v()
+  
+  return (vocab %>%
+    filter(uni_lemma %in% w2v$from | uni_lemma %in% w2v$to)) # word must occur in word2vec data
+}
+
 make_w2v_links <- function(vocab) {
   w2v <- load_w2v() %>%
     filter(from %in% vocab$uni_lemma &
