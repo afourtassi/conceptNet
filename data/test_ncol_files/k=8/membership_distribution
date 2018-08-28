@@ -1,0 +1,13 @@
+# The node membership distr. in the  communities at k=8
+# from /Users/ischeinfeld/Documents/research/conceptNet/data/test_ncol
+# at no lower link weight threshold,
+# and at no upper link weight threshold.
+# Links were treated as undirected.
+# No time limit was set for the clique search.
+
+0 10
+1 60
+2 30
+3 8
+4 5
+

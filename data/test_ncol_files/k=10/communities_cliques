@@ -1,0 +1,13 @@
+# The contained cliques in the communities at k=10
+# from /Users/ischeinfeld/Documents/research/conceptNet/data/test_ncol
+# at no lower link weight threshold,
+# and at no upper link weight threshold.
+# Links were treated as undirected.
+# No time limit was set for the clique search.
+
+0: 31 
+1: 40 45 
+2: 49 
+3: 64 109 111 112 110 262 263 87 167 95 169 243 299 141 151 239 295 300 301 312 71 114 119 120 121 127 137 138 139 140 142 143 144 145 146 147 148 158 213 222 223 113 116 117 118 122 124 128 157 159 212 291 115 123 207 211 206 179 205 297 309 186 236 249 257 235 237 209 313 150 149 152 129 
+4: 69 90 91 92 176 81 88 89 174 202 177 74 
+5: 79 

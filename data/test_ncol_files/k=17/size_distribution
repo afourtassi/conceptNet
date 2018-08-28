@@ -1,0 +1,12 @@
+# The size distr. of the  communities at k=17
+# from /Users/ischeinfeld/Documents/research/conceptNet/data/test_ncol
+# at no lower link weight threshold,
+# and at no upper link weight threshold.
+# Links were treated as undirected.
+# No time limit was set for the clique search.
+
+17 2
+18 1
+19 2
+20 1
+

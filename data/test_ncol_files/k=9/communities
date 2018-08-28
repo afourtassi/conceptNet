@@ -1,0 +1,14 @@
+# The communities at k=9
+# from /Users/ischeinfeld/Documents/research/conceptNet/data/test_ncol
+# at no lower link weight threshold,
+# and at no upper link weight threshold.
+# Links were treated as undirected.
+# No time limit was set for the clique search.
+
+0: couch strawberry banana cheese bed bread lamb napkin pajamas pillow 
+1: airplane butterfly chicken goose owl penguin rooster turkey duck 
+2: airplane boat bus hammer helicopter horse motorcycle tractor train tricycle truck car 
+3: pen alligator belt hose necklace stick banana boots broom coat dress pants pencil 
+4: airplane bathtub boat box bus butterfly chicken comb couch cow deer elephant garage goose horse lion penguin pumpkin rooster squirrel tiger tractor tricycle tuna turkey alligator pony zebra ant beans bedroom closet peas raisin strawberry turtle apple cake corn orange pickle potato table balloon banana cheese bear truck bread lamb pants pig chair giraffe mouse sheep cat duck frog dog 
+5: airplane boat brush bucket comb door fork hammer helicopter knife oven pen pumpkin scissors shovel sink spoon stove tractor train tricycle hose peas apple bowl clock dish orange pickle plate table ball balloon banana bottle broom cup telephone basket 
+6: boat box comb door garage hammer spoon stick table broom pencil basket chair 

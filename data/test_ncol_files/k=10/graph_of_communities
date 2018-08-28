@@ -1,0 +1,19 @@
+# The graph of at k=10
+# from /Users/ischeinfeld/Documents/research/conceptNet/data/test_ncol
+# at no lower link weight threshold,
+# and at no upper link weight threshold.
+# Links were treated as undirected.
+# No time limit was set for the clique search.
+
+0 2 1
+0 3 6
+0 4 1
+1 3 7
+1 4 6
+1 5 1
+2 3 3
+2 4 4
+2 5 3
+3 4 11
+3 5 5
+4 5 7

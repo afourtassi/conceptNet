@@ -1,0 +1,12 @@
+# The node membership distr. in the  communities at k=11
+# from /Users/ischeinfeld/Documents/research/conceptNet/data/cfinder/feature_network_w1
+# at no lower link weight threshold,
+# and at no upper link weight threshold.
+# Links were treated as undirected.
+# No time limit was set for the clique search.
+
+0 20
+1 51
+2 35
+3 7
+

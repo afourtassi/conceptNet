@@ -1,0 +1,11 @@
+# The communities at k=18
+# from /Users/ischeinfeld/Documents/research/conceptNet/data/test_ncol
+# at no lower link weight threshold,
+# and at no upper link weight threshold.
+# Links were treated as undirected.
+# No time limit was set for the clique search.
+
+0: couch cow deer elephant horse squirrel pony zebra turtle table bear lamb pig chair giraffe sheep cat dog 
+1: chicken deer goose rooster tuna turkey beans peas raisin strawberry cake corn pickle potato banana cheese bread lamb pig duck 
+2: airplane brush bucket comb door fork hammer helicopter knife oven pen scissors shovel sink spoon stove tractor train tricycle 
+3: airplane bathtub box bus couch cow elephant garage goose horse lion pumpkin tiger tractor tuna turkey balloon bear truck 
