@@ -163,11 +163,7 @@ Colculate the correlation
 data_prod <- data_aoa %>%
   filter(measure =='produces')
   
-
-
-
 data_by_lang <- split(data_prod, data_prod$language)
-
 
 pair_data <- function(lang1){
   
@@ -247,8 +243,112 @@ cor_random <- map(data_by_lang, pair_random) %>%
   bind_rows() %>%
   mutate(data="random")
 
+
+
+```
+
+similarity-based learning mechanism
+```{r}
+
+unilemmas <- (data_by_lang[[3]] %>% #English (I should recode this to be more explcit)
+    filter(!is.na(uni_lemma)) %>%
+    trim_all_unilemma() %>%
+    select(uni_lemma) %>%
+    #(uni_lemma))$uni_lemma
+    unique())$uni_lemma
+
+#get the data frame for w2v
+w2v <- load_w2v() %>%
+  filter(from %in% unilemmas & to  %in% unilemmas)
+
+#Transfom the data fram into adjencency matrix
+g <- graph.data.frame(w2v, directed=FALSE)
+  #matrix_sim <- get.adjacency(g, attr="w2v_similarity", sparse=FALSE)
+  matrix_sim <- get.adjacency(g, attr="w2v_similarity")
+  
+vocab <- names(matrix_sim[word_0, ])
+#Now generate a sequence based on the first word 
+
+sim_learning <- function() {
+  seq_gen <- function(word_t0, sequence_t0) {
+    
+    if (length(sequence_t0) == length(matrix_sim[word_t0, ])) {
+      return (sequence_t0)
+    } else {
+      #generate similarity values of all words to word_t
+      all_words <- matrix_sim[word_t0, ]
+      #Obtain indices of the words already known at time t (present in in sequence_t)
+      indices <- which(names(all_words) %in% sequence_t0)
+      #generate candidates for word_t+1 by subseting known words from all words
+      candidates <- all_words[-indices]
+      #the next word (i.e., word_t+1) is the most simialr to the last word acquired ()
+      index_t1 <- which.max(candidates)
+      word_t1 <- names(index_t1)
+      sequence_t1 <- c(sequence_t0, word_t1)
+   
+      return(seq_gen(word_t1, sequence_t1))
+    }
+  }
+  
+  word_0 <- sample(vocab, 1) # this is the only random compoenent
+  sequence_0 <- c(word_0)
+  #seq_gen(word_0, sequence_0)
+  return(seq_gen(word_0, sequence_0))
+}
+  
+pair_sim <- function(lang1){
+  pair_cor_sim <- function (lang2){
+  
+  #Orering based on word similarity
+  
+  
+  #Real ordering in the language 
+  data_lang1 <- lang1 %>%
+    filter(!is.na(uni_lemma)) %>%
+    trim_all_unilemma() %>%
+    filter(uni_lemma %in% vocab) %>% #Intersection with w2v data
+    select(uni_lemma, aoa) %>%
+    group_by(uni_lemma) %>%
+    summarise(aoa1=mean(aoa))
+  
+  #Orering based on word similarity
+  sim_list <- sim_learning()
+  sim_data <- data.frame(uni_lemma=sim_list, orderSim = seq(1, length(sim_list))) 
+    
+  
+  #Combine both
+  both_orders <- data_lang1 %>%
+    left_join(sim_data) %>%
+    filter(!is.na(orderSim),
+           !is.na(aoa1)) 
+  
+  
+  order_lang1 <- rank(both_orders$aoa1)
+  order_sim <- rank(both_orders$orderSim)
+  
+  mycorr <- cor.test(order_lang1, order_sim, method = 'kendall')
+  
+  val=mycorr$estimate
+  p=mycorr$p.value
+  language1 = unique(lang1$language) 
+  language2 = unique(lang2$language)
+  
+  data.frame(language1=language1, language2=language2, tau=val, sig = p)
+  
+}
+  map(data_by_lang, pair_cor_sim) %>%
+    bind_rows()
+
+}
+
+cor_sim <- map(data_by_lang, pair_sim) %>%
+  bind_rows() %>%
+  mutate(data="sim")
+
+
 cor_all <- cor_data %>%
-  bind_rows(cor_random)
+  bind_rows(cor_random) %>%
+  bind_rows(cor_sim)
 
 ```
 
@@ -258,6 +358,7 @@ plots
 ggplot(cor_all, 
       aes(x = tau, fill=data)) +
   geom_histogram(aes(y = (..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..]),
+                 alpha=0.5,
                  binwidth=0.05)+
   #scale_x_log10() +
   theme_few() + 
@@ -267,221 +368,4 @@ ggplot(cor_all,
 
 
 
-```
-
-
-
-
-## Nouns
-
-We begin with roughly the same data used by Hills. *(TODO fix, get same data)*
-
-```{r warning=FALSE}
-# We begin by importing data from wordbank. Age of aquisition (in months, it starts with 16, 17,..) is that at which 50% of children can produce the word. We also do naive triming at this point, this means we are ignoring homophone/polysemy (chiken (food), chiken (animals), etc,.. but we will have to be careful in our choices if we are preparing later for publication.
-
-full_vocab <- make_vocab_dataframe(lang="English (American)",
-                                   lang_form = "WS",
-                                   lex_class = "nouns") %>%
-  trim_all_unilemma() %>%
-  trim_all_definition() %>%
-  arrange(age) %>%            # keep first age for duplicates
-  distinct(uni_lemma, .keep_all = TRUE) %>%
-  select(uni_lemma, definition, age, category)
-```
-
-The initial vocabulary contains `r nrow(full_vocab)` (compared to Hills' 312).
-
-## Perceptual & Conceptual Features
-
-Features taken from McRae et al. (2005), in which features were collected for 541 nouns from 725 adults, with 30 adults providing  14 features for each noun.
-
-```{r warning=FALSE, message=FALSE}
-features <- load_features()
-w2v <- load_w2v()
-
-hills_vocab <- full_vocab %>%
-  filter(age <= 30) %>%
-  filter(uni_lemma %in% features$Concept) # filter to words with features
-
-vocab <- hills_vocab %>%
-  filter(uni_lemma %in% w2v$from | uni_lemma %in% w2v$to)
-```
-
-To begin our analysis, we only consider the words for which feature data are available, an overlap of `r nrow(hills_vocab)` in our data compared to Hills' 130. Then we filter the `r nrow(hills_vocab) - nrow(vocab)` words for which word2vec data is not available, for a final vocabulary of `r nrow(vocab)`.
-
-## Build Network
-
-Using vocabulary obtained by 30 months and the same McRae features as Hills, we construct a network with edge attributes for perceptual and conceptual features, and for word2vec similarity.
-
-```{r message=FALSE}
-# perceptual and conceptual McRae feature types
-perceptual_features = c("sound", "taste", "smell", "tactile",
-                        "visual-form_and_surface", "visual-motion", "visual-color")
-conceptual_features = c("function")
-
-# count shared features between words in vocabulary
-perceptual_links <- make_feature_links(vocab = vocab,
-                                       feature_types = perceptual_features) %>%
-  rename(perceptual = shared)
-
-conceptual_links <- make_feature_links(vocab = vocab,
-                                       feature_types = conceptual_features) %>%
-  rename(conceptual = shared)
-
-# get word2vec distance between words in vocabulary
-w2v_links <- make_w2v_links(vocab = vocab) #TODO still problem w/ vocab matching w2v data
-
-links <- perceptual_links %>%
-  full_join(conceptual_links, by=c("from", "to")) %>%
-  full_join(w2v_links, by=c("from", "to"))
-
-network <- graph_from_data_frame(links, vertices = vocab, directed = FALSE) %>%
-  as_tbl_graph()
-```
-
-# Results
-
-## The Network
-
-First we generate a display layout for the network, based on the word2vec data.
-
-```{r}
-source(paste(getwd(),"/helpers/all_helper.r",sep = ""), chdir = T)
-
-layout <- layout_network(network %E>% mutate(weights = w2v_similarity))
-
-network <- network %N>%
-  mutate(x = layout[,1]) %>%
-  mutate(y = layout[,2])
-```
-
-
-We can examine the networks generated by filtering edges with a word2vec similarity threshold.
-
-```{r out.width = '100%', dpi=300}
-source(paste(getwd(),"/helpers/all_helper.r",sep = ""), chdir = T)
-
-par(mfrow=c(2, 2), mar=c(2,0.4,0.8,0.4)) # row x col, column first
-
-for (s in seq(0.35, 0.5, 0.05)) {
-  plot_network(network %E>% filter(w2v_similarity > s),
-               layout = layout,
-               labels=TRUE,
-               frame=FALSE,
-               title=str_glue("Threshold = {s}"))
-}
-
-```
-
-## Clustering algorithms
-
-```{r out.width='100%', fig.asp=1/2, dpi=300}
-# cluster_edge_betweenness - doesn't cluster reasonably, treats weights as distances?
-# 
-# cluster_infomap - returns one cluster
-# 
-# cluster_label_prop - returns one cluster
-# 
-# cluster_optimal - too computationally intensive for laptop, may not be possible (NP)
-
-source(paste(getwd(),"/helpers/all_helper.r",sep = ""), chdir = T)
-
-par(mfrow=c(1, 2), mar=c(2,0.4,0.8,0.4)) # row x col, column first
-
-feature_network <- network %E>%
-  mutate_all(funs(replace(., is.na(.), 0))) %>%
-  mutate(features = perceptual + conceptual) %>%
-  filter(features > 0)
-
-# cluster_fast_greedy
-plot_network(network, layout = layout,
-             clusters = cluster_fast_greedy(network,
-                                            weights = E(network)$w2v_similarity)$membership,
-             labels=TRUE, frame=TRUE)
-
-plot_network(feature_network, layout = layout,
-             clusters = cluster_fast_greedy(feature_network,
-                                            weights = E(feature_network)$features)$membership,
-             labels=TRUE, frame=TRUE)
-
-# cluster_leading_eigen
-plot_network(network, layout = layout,
-             clusters = cluster_leading_eigen(network,
-                                              weights = E(network)$w2v_similarity)$membership,
-             labels=TRUE, frame=TRUE)
-
-plot_network(feature_network, layout = layout,
-             clusters = cluster_leading_eigen(feature_network,
-                                              weights = E(feature_network)$features)$membership,
-             labels=TRUE, frame=TRUE)
-
-# cluster_louvain
-plot_network(network, layout = layout,
-             clusters = cluster_louvain(network,
-                                        weights = E(network)$w2v_similarity)$membership,
-             labels=TRUE, frame=TRUE)
-
-plot_network(feature_network, layout = layout,
-             clusters = cluster_louvain(feature_network,
-                                        weights = E(feature_network)$features)$membership,
-             labels=TRUE, frame=TRUE)
-
-# cluster_spinglass
-plot_network(network, layout = layout,
-             clusters = cluster_spinglass(network,
-                                          weights = E(network)$w2v_similarity)$membership,
-             labels=TRUE, frame=TRUE)
-
-plot_network(feature_network, layout = layout,
-             clusters = cluster_spinglass(feature_network,
-                                          weights = E(feature_network)$features)$membership,
-             labels=TRUE, frame=TRUE)
-
-# cluster_walktrap
-plot_network(network, layout = layout,
-             clusters = cluster_walktrap(network,
-                                         weights = E(network)$w2v_similarity)$membership,
-             labels=TRUE, frame=TRUE)
-
-plot_network(feature_network, layout = layout,
-             clusters = cluster_walktrap(feature_network,
-                                         weights = E(feature_network)$features)$membership,
-             labels=TRUE, frame=TRUE)
-```
-
-```{r out.width='100%', fig.asp=1/2, dpi=300}
-# cluster_walktrap
-for (age_limit in seq(16, 30, by=2)) {
-  net_at_age <- network %N>% filter(age <= age_limit) %E>% mutate(weights = w2v_similarity)
-  
-  plot_network(net_at_age,
-               clusters = cluster_walktrap(net_at_age,
-                                           weights = E(net_at_age)$w2v_similarity)$membership,
-               labels = TRUE,
-               frame = TRUE)
-}
-```
-
-```{r}
-feature_net <- network %E>% mutate(weights = perceptual) %E>% filter(weights > 0) %N>% filter(!node_is_isolated())
-feature_layout <- layout_network(feature_net)
-
-feature_net <- feature_net %N>%
-  mutate(x = feature_layout[,1]) %>%
-  mutate(y = feature_layout[,2])
-
-
-```
-
-```{r out.width='100%', fig.asp=1/2, dpi=300}
-# cluster_walktrap
-for (age_limit in seq(16, 30, by=2)) {
-  net_at_age <- feature_net %N>% filter(age <= age_limit) %E>% mutate(weights = perceptual)
-  
-  plot_network(net_at_age,
-               clusters = cluster_walktrap(net_at_age,
-                                           weights = E(net_at_age)$perceptual)$membership,
-               labels = TRUE,
-               frame = TRUE)
-}
 ```
