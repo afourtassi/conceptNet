@@ -250,7 +250,7 @@ cor_random <- map(data_by_lang, pair_random) %>%
 similarity-based learning mechanism
 ```{r}
 
-unilemmas <- (data_by_lang[[3]] %>% #English (I should recode this to be more explcit)
+unilemmas <- (data_by_lang[[3]] %>% #I use English data to derive unilemmas, see above (but I should recode this to be cleaner)
     filter(!is.na(uni_lemma)) %>%
     trim_all_unilemma() %>%
     select(uni_lemma) %>%
@@ -264,12 +264,18 @@ w2v <- load_w2v() %>%
 #Transfom the data fram into adjencency matrix
 g <- graph.data.frame(w2v, directed=FALSE)
   #matrix_sim <- get.adjacency(g, attr="w2v_similarity", sparse=FALSE)
-  matrix_sim <- get.adjacency(g, attr="w2v_similarity")
+matrix_sim <- get.adjacency(g, attr="w2v_similarity")
   
 vocab <- names(matrix_sim[word_0, ])
-#Now generate a sequence based on the first word 
 
-sim_learning <- function() {
+
+#Sampling via 
+
+
+
+## Sampling via comparing similarity to last known words 
+
+lastWord <- function() {
   seq_gen <- function(word_t0, sequence_t0) {
     
     if (length(sequence_t0) == length(matrix_sim[word_t0, ])) {
@@ -295,6 +301,43 @@ sim_learning <- function() {
   #seq_gen(word_0, sequence_0)
   return(seq_gen(word_0, sequence_0))
 }
+
+## Sampling via averaging to similarity to all known 
+
+allWords <- function() {
+  seq_gen <- function(sequence_t0) {
+  
+    if (length(sequence_t0) == length(matrix_sim[sequence_t0[1], ])) {
+      return (sequence_t0)
+    } else {
+      
+      ave_sim <- function(candidate) {
+        all <- matrix_sim[candidate, ] #Similarity values to all words 
+        values <- all[names(all) %in% sequence_t0] # Similarity values to known words only
+        return(data.frame(word = candidate, value = mean(values)))
+      }
+    
+      #all words
+      all <- names(matrix_sim[sequence_t0[1], ])
+      candidates <- setdiff(all, sequence_t0)
+      list_sim  <- map(candidates, ave_sim) %>%
+        bind_rows()
+      max_value <- list_sim[which.max(list_sim$value),]
+      word_t1 <- max_value$word[1]
+      sequence_t1 <- c(sequence_t0, word_t1)
+   
+      return(seq_gen(sequence_t1))
+    }
+  }
+  word_0 <- sample(vocab, 1) # this is the only random compoenent
+  sequence_0 <- c(word_0)
+  return(seq_gen(sequence_0))
+}
+
+```
+
+```{r}
+  
   
 pair_sim <- function(lang1){
   pair_cor_sim <- function (lang2){
@@ -349,6 +392,9 @@ cor_sim <- map(data_by_lang, pair_sim) %>%
 cor_all <- cor_data %>%
   bind_rows(cor_random) %>%
   bind_rows(cor_sim)
+
+
+
 
 ```
 
