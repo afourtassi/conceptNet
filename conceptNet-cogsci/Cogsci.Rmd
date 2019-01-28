@@ -1,0 +1,371 @@
+---
+title: "CogSci Analysis"
+author: "Isaac Scheinfeld"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: default
+---
+
+# Setup
+
+```{r echo=FALSE, message=FALSE, warning=FALSE} 
+library(purrr) # fp library
+library(readr) # read text data files (csv, etc.)
+library(ggplot2) # plotting
+library(dplyr) # for working with datafram-like objects
+library(tidyr) # for data tidying
+library(wordbankr) # access to wordbank data
+library(stringr) # common string operations
+library(igraph) # network analysis and visualization
+library(tibble) # modern dataframes
+library(tidygraph)
+library(matrixStats)
+library(memoise)
+
+source("helpers/wb_helper.r")
+source("helpers/word2vec_helper.r")
+source("helpers/network_helper.r")
+source("helpers/random_helper.r")
+source("helpers/dynamics_helper.r")
+source("helpers/statistics_helper.r")
+```
+
+## Nouns
+
+We begin by importing data from wordbank. Age of aquisition (in months, it starts with 16, 17,..) is that at which 50% of children can produce the word. We also do naive triming at this point, this means we are ignoring homophone/polysemy (chiken (food), chiken (animals), etc,.. but we will have to be careful in our choices if we are preparing later for publication.
+
+```{r warning=FALSE}
+get_language_vocab_ <- function(lang) {
+  return(make_vocab_dataframe(lang=lang,
+                              lang_form = "WS",
+                              lex_class = "nouns") %>%
+           trim_all_unilemma() %>% # TODO check trimming
+           trim_all_definition() %>%
+           arrange(age) %>%            # keep first age for duplicates
+           distinct(uni_lemma, .keep_all = TRUE) %>%
+           select(uni_lemma, definition, age, category))
+}
+
+get_language_vocab <- memoize(get_language_vocab_) # memoize to prevent re-downloading dataset TODO check if this works
+```
+
+## 
+
+## Build Word2Vec Network Evolution
+
+
+```{r message=FALSE}
+clusters_evolution <- function(vocab, n_clusters, min_age, max_age, randomization) {
+  
+  if(randomization == "none") {
+    # do nothing
+  } else if(randomization == "random_aoa") {
+    vocab <- randomize_aoa(vocab) # TODO handle randomization, write "randomize_aoa"" in random_helper.r
+  } else if(randomization == "to_nearest_aoa") {
+    vocab <- randomize_aoa_to_nearest(vocab)
+  } else if(randomization == "within_last_clustering") {
+    vocab <- randomize_within_last_clustering(vocab, n_clusters)
+  } else {
+    stop("Randomization argument incorrect.")
+  }
+  
+  vocab_network <- vocab_to_w2v_network(vocab) # drops words w/o w2v data, NOTE memoizes w2v data
+  
+  
+  # list of networks at each age
+  net_evo <- min_age:max_age %>%
+    map(~ filter(activate(vocab_network, nodes), age <= .))
+  
+  # list of vocabulaires at each age
+  vocab_evo <- net_evo %>%
+    map(V)
+  
+  # list of cluster membership index vectors at each age
+  membership_evo <- net_evo %>%
+    map(w2v_waltrap) %>%
+    map(~ cut_at(., no = n_clusters))
+  
+  # list of word clusters at each age
+  clusters_evo <- map2(vocab_evo, membership_evo, build_clusters)
+  
+  return(clusters_evo)
+}
+```
+
+# Analysis
+
+## Measure Clustering Dynamics
+
+```{r}
+# language, n_clusters, age range, random samples, dynamics measure -> analysis
+# example measure is function(clusters_evo) {pair_measures_to_last(clusters_evo, measure)}
+run_measure <- function(clusters_evo, measure) {
+  if (measure == "pair_precision_to_last") {
+    return(pair_measures_to_last(clusters_evo, pair_precision))
+  } else if (measure == "pair_recall_to_last") {
+    return(pair_measures_to_last(clusters_evo, pair_recall))
+  } else if (measure == "pair_f1_to_last") {
+    return(pair_measures_to_last(clusters_evo, pair_f1))
+  } else if (measure == "min_max_size_ratio") {
+    return(map_dbl(clusters_evo, min_max_size_ratio))
+  } else if (measure == "modularity") {
+    return(map_dbl(clusters_evo, min_max_size_ratio))
+  } else {
+    stop("Incorrect Dynamics Measure Name")
+  }
+}
+
+# -----------------------------------------------------------------------------------------------
+# given a language and # of clusters, the dynamics measures and randomizations are calculated
+# together to avoid repeatedly sampling clusterings
+# -----------------------------------------------------------------------------------------------
+
+measure_cluster_dynamics <- function(language, n_clusters, measures, randomizations, samples) {
+    vocab <- get_language_vocab(language)
+    
+    # measurement schema : age, measure, randomization, sample, value
+    measurements <- list() # list of measurement tibbles
+    
+    # true vocabulary sizes (full vocabulary size at each month)
+    measurements[["true_vocab_sizes"]] <-
+      tibble(age = min(vocab$age):max(vocab$age),
+             measure = "true_vocab_size",
+             randomization = NA, # same for all randomizations
+             sample = NA,
+             value = min(vocab$age):max(vocab$age) %>%
+               map(~ filter(vocab, age <= .)) %>%
+               map(nrow) %>%
+               unlist())
+    
+    # --------------------- true aoa measures --------------------- #
+    true_clusters_evo <- clusters_evolution(vocab,
+                                            n_clusters,
+                                            min(vocab$age),
+                                            max(vocab$age),
+                                            randomization = "none")
+    
+    # w2v vocabulary sizes (number of words know at each month in clustering)
+    measurements[["w2v_vocab_sizes"]] <- 
+      tibble(age = min(vocab$age):max(vocab$age),
+             measure = "w2v_vocab_size",
+             randomization = NA, # same for all randomizations
+             sample = NA,
+             value = unlist(map(true_clusters_evo, ~ length(unlist(.)))))
+    
+    # dynamics measures
+    for (measure in measures) {
+      value <- run_measure(true_clusters_evo, measure)
+      measurements[[measure]] <-
+        tibble(age = min(vocab$age):max(vocab$age),
+               measure = measure,
+               randomization = "none",
+               sample = NA,
+               value = value)
+    }
+    
+    # --------------------- randomized aoa measures --------------------- #
+    for (randomization in randomizations) {
+      
+      for (sample in 1:samples) {
+        random_clusters_evo <- clusters_evolution(vocab,
+                                                  n_clusters,
+                                                  min(vocab$age),
+                                                  max(vocab$age),
+                                                  randomization = randomization)
+        
+        for (measure in measures) {
+          value <- run_measure(random_clusters_evo, measure)
+          measurements[[paste(randomization, measure, sample, sep = "__")]] <-
+            tibble(age = min(vocab$age):max(vocab$age),
+                   measure = measure,
+                   randomization = randomization,
+                   sample = sample,
+                   value = value)
+        }
+      }
+    }
+    
+    return(bind_rows(measurements))
+}
+
+run_experiment <- function(languages, measures, randomizations, cluster_counts, samples) {
+  measurements = list()
+  cat("measuring dynamics\n")
+  for(language in languages) {
+    cat("  language:", language, "\n")
+    for(n_clusters in cluster_counts) {
+      cat("    n_clusters: ", n_clusters, "\n")
+      measurements[[length(measurements) + 1]] <- 
+        measure_cluster_dynamics(language, n_clusters, measures, randomizations, samples) %>%
+        mutate(language = language) %>%
+        mutate(n_clusters = n_clusters) %>%
+        select(language, n_clusters, everything())
+    }
+  }
+  return(bind_rows(measurements))
+}
+```
+
+## Run Experiment
+
+```{r warning=FALSE, message=FALSE}
+languages <-  c("Croatian","Danish","English (American)", "French (Quebecois)", "Italian", "Norwegian", "Russian", "Spanish (Mexican)", "Swedish", "Turkish")
+
+measures <- c("pair_precision_to_last", "pair_recall_to_last", "pair_f1_to_last", "min_max_size_ratio")
+
+randomizations <- c("random_aoa", "to_nearest_aoa", "within_last_clustering")
+
+### compute measurements, TAKES A LONG TIME
+
+# measurements <- run_experiment(languages = languages,
+#                           measures = measures,
+#                           randomizations = randomizations,
+#                           cluster_counts = 2:5,
+#                           samples = 50)
+# 
+#saveRDS(measurements, "measurements.rds")
+
+measurements <- readRDS("measurements.rds")
+
+```
+
+## Summarize and Visualize Results
+```{r}
+to_pdf = FALSE
+
+### Plot vocab sizes
+vocab_sizes <- measurements %>%
+  select(language, n_clusters, age, measure, value) %>%
+  filter(measure %in% c("true_vocab_size", "w2v_vocab_size"))
+
+if (to_pdf) {
+  pdf("output/vocab_size.pdf", width=20, height=3)
+}
+ggplot(vocab_sizes) +
+  geom_line(aes(x = age, y = value, colour = measure)) + 
+  facet_grid(~ language)
+if (to_pdf) {
+  dev.off()
+}
+```
+```{r}
+### Plot measure summary
+to_pdf = FALSE
+
+for (measure_to_plot in measures) {
+  for (randomization_to_plot in randomizations) {
+    
+    summary_fname <- paste(measure_to_plot, randomization_to_plot, sep="__") %>%
+      paste("pdf", sep = ".")
+    
+    # APPROACH # 1
+    true_evolution <- measurements %>%
+      filter(measure == measure_to_plot) %>%
+      filter(randomization == "none") %>%
+      select(language, n_clusters, age, value)
+    
+    random_evolution <- measurements %>%
+      filter(measure == measure_to_plot) %>%
+      filter(randomization == randomization_to_plot) %>%
+      group_by(language, n_clusters, age) %>%
+      summarise(mean = mean(value),
+                sd = sd(value),
+                `25%`=quantile_func(value, probs=0.25),
+                `50%`=quantile_func(value, probs=0.5),
+                `75%`=quantile_func(value, probs=0.75),
+                `10%`=quantile_func(value, probs=0.1),
+                `90%`=quantile_func(value, probs=0.9)) %>%
+      ungroup()
+    
+    evolution <- full_join(true_evolution, random_evolution, by = c("language", "n_clusters", "age"))
+    
+    if (to_pdf) {
+      pdf(paste("output",summary_fname,sep="/"), width=20, height=10)
+    }
+    print(
+      ggplot(evolution, aes(x = age)) +
+        geom_ribbon(aes(ymin = `10%`,
+                        ymax = `90%`),
+                    colour="yellow",
+                    fill="yellow",
+                    linetype=2,
+                    alpha= 0.2) +
+        geom_ribbon(aes(ymin = `25%`,
+                        ymax = `75%`),
+                    colour="orange",
+                    fill="orange",
+                    linetype=2,
+                    alpha= 0.3) +
+        geom_line(aes(y = `50%`), color = "red", alpha = 0.4) + 
+        geom_line(aes(y = value), color = "blue") +
+        labs(title = paste("True value against",
+                           randomization_to_plot,
+                           "statistics on",
+                           max(measurements$sample, na.rm = TRUE), 
+                           "samples"),
+             subtitle = "25%-75% and 10%-90% quantiles shown",
+             x ="Age (m)", y = measure_to_plot) +
+        facet_grid(n_clusters ~ language)
+    )
+    if (to_pdf) {
+      dev.off()
+    }
+  }
+}
+```
+
+
+
+# Deprecated
+
+```{r}
+# for pdf, put "pdf("precision_20_samples.pdf", width=10, height=5)" before and "dev.off()" after plotting
+# ggplot(results_precision, aes(x=age)) +
+#   geom_line(aes(y = full_vocab_size, colour = "Full Vocab")) +
+#   geom_line(aes(y = w2v_vocab_size, colour = "W2V Vocab")) +
+#   theme(legend.title=element_blank()) +
+#   facet_grid(. ~ language) +
+#   labs(title="Vocab size by month", x="Age", y="Vocab Size")
+
+## plus-minus standard
+
+for (measure in measures) {
+  print(measure)
+  # for (randomization in randomizations) {
+  #   print("plotting")
+  #   c("plotting\n")
+  #   # mean_name <- random_measurement_name(measure, randomization, "mean")
+  #   # sd_name <- random_measurement_name(measure, randomization, "sd")
+  #   # 
+  #   # print("plotting")
+  #   # ggplot(results, aes(x=age)) +
+  #   #   geom_line(aes(y = !! measure)) +
+  #   #   facet_grid(n_clusters ~ language)
+  # }
+}
+
+# ggplot(results_precision, aes(x=age)) +
+#   geom_ribbon(aes(ymin=rand_measure_evo_mean - rand_measure_evo_sd,
+#                   ymax=rand_measure_evo_mean + rand_measure_evo_sd),
+#               colour="grey",
+#               fill="grey",
+#               linetype=2,
+#               alpha= 0.2) +
+#   geom_ribbon(aes(ymin=rand_measure_evo_mean - 2 * rand_measure_evo_sd,
+#                   ymax=rand_measure_evo_mean + 2 * rand_measure_evo_sd),
+#               colour="grey",
+#               fill="grey",
+#               linetype=2,
+#               alpha= 0.2) +
+# #  geom_line(aes(y = rand_measure_evo_mean),
+# #            color="grey") +
+#   geom_line(aes(y = measure_evo),
+#             color="black") +
+#   theme(legend.title=element_blank()) +
+#   facet_grid(n_clusters ~ language) +
+#   labs(title="Precision against clustering at 30 months", x="Age", y="Measure")
+
+```
+
+
