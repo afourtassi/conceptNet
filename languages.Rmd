@@ -1,0 +1,417 @@
+---
+title: "Comparing order of acquisition cross-linguistically"
+author: "Abdellah Fourtassi"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: default
+---
+# Preparation
+
+```{r echo=FALSE, message=FALSE, warning=FALSE} 
+library(purrr) # fp library
+library(readr) # read text data files (csv, etc.)
+library(ggplot2) # plotting
+library(langcog) # useful things used by Language and Cognition Lab
+library(dplyr) # for working with datafram-like objects
+library(tidyr) # for data tidying
+library(wordbankr) # access to wordbank data
+library(stringr) # common string operations
+library(broom) # converts R function outputs to tidy data frames
+library(igraph) # network analysis and visualization
+library(knitr) # general-purpose tool for dynamic report generation
+library(kableExtra) # table formatting
+library(lemon) # functions for working w/ ggplot2 and knitr extensions
+library(tibble) # modern dataframes
+library(tidygraph)
+library(doParallel)
+library(networkD3)
+#library(ForceAtlas2)
+library(boot)
+library(ggthemes)
+
+source(paste(getwd(),"/helpers/all_helper.r",sep = ""), chdir = T)
+```
+
+Get cross-linguistic data from Wordbank
+```{r}
+
+
+languages = c("Croatian","Danish","English (American)", "French (Quebecois)", "Italian", "Norwegian", "Russian", "Spanish (Mexican)", "Swedish", "Turkish")
+
+
+admins <- get_administration_data() %>%
+  select(data_id, age, language, form) %>%
+  filter(language %in% languages)
+
+items <- get_item_data() %>%
+  filter(type == "word", lexical_class == "nouns") %>%
+  filter(language %in% languages)
+
+items_by_inst <- split(items, paste(items$language, items$form, sep = "_"))
+
+
+get_inst_data <- function(inst_items) {
+  inst_lang <- unique(inst_items$language)
+  inst_form <- unique(inst_items$form)
+  inst_admins <- filter(admins, language == inst_lang, form == inst_form)
+  get_instrument_data(language = inst_lang ,
+                      form = inst_form,
+                      administrations = inst_admins,
+                      items = inst_items$item_id,
+                      iteminfo = inst_items
+                      ) %>%
+    filter(!is.na(age)) %>%
+    mutate(produces = !is.na(value) & value == "produces",
+           understands = !is.na(value) & (value == "understands" | value == "produces")) %>%
+    select(-value) %>%
+    gather(measure, value, produces, understands) %>%
+    filter((measure == "understands" & form == "WG") | (measure == "produces" & form == "WS") ) %>%
+    mutate(language = inst_lang,
+           form = inst_form)
+    
+}
+
+data_raw <- map(items_by_inst, get_inst_data) 
+  
+data_all <- bind_rows(data_raw) %>%
+  rename(item = num_item_id) %>%
+  group_by(language, form, measure,
+             lexical_category, lexical_class, uni_lemma,  item, definition, 
+             age) %>%
+  summarise(num_true = sum(value, na.rm = TRUE),
+              num_false = n() - num_true,
+              prop = mean(value, na.rm = TRUE)) 
+
+#feather::write_feather(data_all, "saved_data/data_all.feather")
+
+#I am taking out measure to keep only produce
+data_all <- feather::read_feather("saved_data/data_all.feather")  
+
+data_all$language <- plyr::mapvalues(data_all$language, 
+                                 from = c("Croatian","Danish","English (American)", "French (Quebecois)", "Italian", "Norwegian", "Russian", "Spanish (Mexican)", "Swedish", "Turkish"), 
+                                 to = c("Croatian","Danish","English", "French", "Italian", "Norwegian", "Russian", "Spanish", "Swedish", "Turkish"))
+  
+
+
+```
+
+Calculate the age of acquisition
+```{r}
+
+fit_inst_measure_uni <- function(inst_measure_uni_data) {
+  ages <- min(inst_measure_uni_data$age):max(inst_measure_uni_data$age)
+  model <- glm(cbind(num_true, num_false) ~ age, family = "binomial",
+               data = inst_measure_uni_data)
+  fit <- predict(model, newdata = data.frame(age = ages), se.fit = TRUE)
+  aoa <- -model$coefficients[["(Intercept)"]] / model$coefficients[["age"]]
+  constants <- inst_measure_uni_data %>%
+    ungroup()%>%
+    select(language, form, measure, lexical_category, lexical_class, uni_lemma, item, definition) %>%
+    distinct()
+  
+  props <- inst_measure_uni_data %>%
+    ungroup() %>%
+    select(age, prop)
+  
+  data.frame(age = ages,
+             fit_prop = inv.logit(fit$fit),
+             fit_se = fit$se.fit,
+             aoa = aoa, language = constants$language,
+             form = constants$form,
+             measure = constants$measure,
+             uni_lemma = constants$uni_lemma,
+             item = constants$item,
+             definition = constants$definition) %>%
+    left_join(props)
+}
+
+list_by_item <- data_all %>%
+  # make this filtering at the beginning, not here
+  split(paste(.$language, .$form, .$measure, .$item))
+
+data_aoa <- map(list_by_item, fit_inst_measure_uni) %>%
+  bind_rows()
+
+data_aoa <- data_aoa %>%
+  select(language, form, measure, uni_lemma, item, definition, aoa) %>%
+  distinct()
+
+#feather::write_feather(data_aoa, "saved_data/data_aoa.feather")
+
+data_aoa <- feather::read_feather("saved_data/data_aoa.feather")
+
+#I am taking out measure to keep only produce
+#data_aoa2 <- feather::read_feather("saved_data/aoa_data.feather") %>%
+#  rename(definition = defintion) %>%
+#  select(language, form, measure, uni_lemma, item, definition, aoa) %>%
+#  distinct()
+
+```
+
+Colculate the correlation
+```{r}
+
+#Correlation between comprehension and production in each language
+#For each pairwise comparision, compute correlation using values unilemmas which are avialable in both languages 
+
+#I should have a double loop?
+#For each pair of languages, select the unilemmas and their aoa, rank the unilemmas based on aoa, and calcualte the correlation
+
+# rank unilemma asa function of AoA
+
+data_prod <- data_aoa %>%
+  filter(measure =='produces')
+  
+data_by_lang <- split(data_prod, data_prod$language)
+
+pair_data <- function(lang1){
+  
+  pair_cor_data <- function (lang2){
+  
+  lang1_unilemmas <- unique(lang1$uni_lemma)
+  lang2_unilemmas <- unique(lang2$uni_lemma)
+  uni_intersect <-  intersect(lang1_unilemmas, lang2_unilemmas)
+  
+  data_lang1 <- lang1 %>%
+    filter(!is.na(uni_lemma),
+           uni_lemma %in% uni_intersect) %>%
+    select(uni_lemma, aoa) %>%
+    group_by(uni_lemma) %>%
+    summarise(aoa1=mean(aoa))
+
+  
+  data_lang2 <- lang2 %>%
+    filter(!is.na(uni_lemma),
+           uni_lemma %in% uni_intersect) %>%
+    select(uni_lemma, aoa) %>%
+    group_by(uni_lemma) %>%
+    summarise(aoa2=mean(aoa))
+  
+  both <- data_lang1 %>%
+    left_join(data_lang2)
+  
+  mycorr <- cor.test(rank(both$aoa1), rank(both$aoa2), method = 'kendall')
+  val=mycorr$estimate
+  p=mycorr$p.value
+  language1 = unique(lang1$language) 
+  language2 = unique(lang2$language)
+  
+  data.frame(language1=language1, language2=language2, tau=val, sig = p)
+  
+}
+  map(data_by_lang, pair_cor_data) %>%
+    bind_rows()
+
+}
+
+
+pair_random <- function(lang1){
+  
+  pair_cor_rand <- function (lang2){
+    
+  data_lang1 <- lang1 %>%
+    filter(!is.na(uni_lemma)) %>%
+    select(uni_lemma, aoa) %>%
+    group_by(uni_lemma) %>%
+    summarise(aoa1=mean(aoa))
+  
+  order_lang1 <- rank(data_lang1$aoa1)
+  order_random <- sample(order_lang1, size = length(order_lang1), replace = FALSE)
+  
+  mycorr <- cor.test(order_lang1, order_random, method = 'kendall')
+  
+  val=mycorr$estimate
+  p=mycorr$p.value
+  language1 = unique(lang1$language) 
+  language2 = unique(lang2$language)
+  
+  data.frame(language1=language1, language2=language2, tau=val, sig = p)
+  
+}
+  map(data_by_lang, pair_cor_rand) %>%
+    bind_rows()
+
+}
+
+cor_data <- map(data_by_lang, pair_data) %>%
+  bind_rows() %>%
+  filter(language1!=language2) %>%
+  mutate(data="languages")
+
+cor_random <- map(data_by_lang, pair_random) %>%
+  bind_rows() %>%
+  mutate(data="random")
+
+
+
+```
+
+similarity-based learning mechanism
+```{r}
+
+unilemmas <- (data_by_lang[[3]] %>% #I use English data to derive unilemmas, see above (but I should recode this to be cleaner)
+    filter(!is.na(uni_lemma)) %>%
+    trim_all_unilemma() %>%
+    select(uni_lemma) %>%
+    #(uni_lemma))$uni_lemma
+    unique())$uni_lemma
+
+#get the data frame for w2v
+w2v <- load_w2v() %>%
+  filter(from %in% unilemmas & to  %in% unilemmas)
+
+#Transfom the data fram into adjencency matrix
+g <- graph.data.frame(w2v, directed=FALSE)
+  #matrix_sim <- get.adjacency(g, attr="w2v_similarity", sparse=FALSE)
+matrix_sim <- get.adjacency(g, attr="w2v_similarity")
+  
+vocab <- names(matrix_sim[word_0, ])
+
+
+#Sampling via 
+
+
+
+## Sampling via comparing similarity to last known words 
+
+lastWord <- function() {
+  seq_gen <- function(word_t0, sequence_t0) {
+    
+    if (length(sequence_t0) == length(matrix_sim[word_t0, ])) {
+      return (sequence_t0)
+    } else {
+      #generate similarity values of all words to word_t
+      all_words <- matrix_sim[word_t0, ]
+      #Obtain indices of the words already known at time t (present in in sequence_t)
+      indices <- which(names(all_words) %in% sequence_t0)
+      #generate candidates for word_t+1 by subseting known words from all words
+      candidates <- all_words[-indices]
+      #the next word (i.e., word_t+1) is the most simialr to the last word acquired ()
+      index_t1 <- which.max(candidates)
+      word_t1 <- names(index_t1)
+      sequence_t1 <- c(sequence_t0, word_t1)
+   
+      return(seq_gen(word_t1, sequence_t1))
+    }
+  }
+  
+  word_0 <- sample(vocab, 1) # this is the only random compoenent
+  sequence_0 <- c(word_0)
+  #seq_gen(word_0, sequence_0)
+  return(seq_gen(word_0, sequence_0))
+}
+
+## Sampling via averaging to similarity to all known 
+
+allWords <- function() {
+  seq_gen <- function(sequence_t0) {
+  
+    if (length(sequence_t0) == length(matrix_sim[sequence_t0[1], ])) {
+      return (sequence_t0)
+    } else {
+      
+      ave_sim <- function(candidate) {
+        all <- matrix_sim[candidate, ] #Similarity values to all words 
+        values <- all[names(all) %in% sequence_t0] # Similarity values to known words only
+        return(data.frame(word = candidate, value = mean(values)))
+      }
+    
+      #all words
+      all <- names(matrix_sim[sequence_t0[1], ])
+      candidates <- setdiff(all, sequence_t0)
+      list_sim  <- map(candidates, ave_sim) %>%
+        bind_rows()
+      max_value <- list_sim[which.max(list_sim$value),]
+      word_t1 <- max_value$word[1]
+      sequence_t1 <- c(sequence_t0, word_t1)
+   
+      return(seq_gen(sequence_t1))
+    }
+  }
+  word_0 <- sample(vocab, 1) # this is the only random compoenent
+  sequence_0 <- c(word_0)
+  return(seq_gen(sequence_0))
+}
+
+```
+
+```{r}
+  
+  
+pair_sim <- function(lang1){
+  pair_cor_sim <- function (lang2){
+  
+  #Orering based on word similarity
+  
+  
+  #Real ordering in the language 
+  data_lang1 <- lang1 %>%
+    filter(!is.na(uni_lemma)) %>%
+    trim_all_unilemma() %>%
+    filter(uni_lemma %in% vocab) %>% #Intersection with w2v data
+    select(uni_lemma, aoa) %>%
+    group_by(uni_lemma) %>%
+    summarise(aoa1=mean(aoa))
+  
+  #Orering based on word similarity
+  sim_list <- sim_learning()
+  sim_data <- data.frame(uni_lemma=sim_list, orderSim = seq(1, length(sim_list))) 
+    
+  
+  #Combine both
+  both_orders <- data_lang1 %>%
+    left_join(sim_data) %>%
+    filter(!is.na(orderSim),
+           !is.na(aoa1)) 
+  
+  
+  order_lang1 <- rank(both_orders$aoa1)
+  order_sim <- rank(both_orders$orderSim)
+  
+  mycorr <- cor.test(order_lang1, order_sim, method = 'kendall')
+  
+  val=mycorr$estimate
+  p=mycorr$p.value
+  language1 = unique(lang1$language) 
+  language2 = unique(lang2$language)
+  
+  data.frame(language1=language1, language2=language2, tau=val, sig = p)
+  
+}
+  map(data_by_lang, pair_cor_sim) %>%
+    bind_rows()
+
+}
+
+cor_sim <- map(data_by_lang, pair_sim) %>%
+  bind_rows() %>%
+  mutate(data="sim")
+
+
+cor_all <- cor_data %>%
+  bind_rows(cor_random) %>%
+  bind_rows(cor_sim)
+
+
+
+
+```
+
+plots
+```{r}
+
+ggplot(cor_all, 
+      aes(x = tau, fill=data)) +
+  geom_histogram(aes(y = (..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..]),
+                 alpha=0.5,
+                 binwidth=0.05)+
+  #scale_x_log10() +
+  theme_few() + 
+  theme(aspect.ratio = 0.7, legend.title = element_text(size=8)) +  #facet_grid(Segmentation ~ language)+
+  scale_y_continuous(labels = scales::percent)+
+  xlab("pairwise correlation") +ylab("Count")
+
+
+
+```
