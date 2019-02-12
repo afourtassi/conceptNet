@@ -83,7 +83,7 @@ clusters_evolution <- function(vocab, n_clusters, min_age, max_age, randomizatio
   
   # list of cluster membership index vectors at each age
   membership_evo <- net_evo %>%
-    map(w2v_waltrap) %>%
+    map(w2v_walktrap) %>%
     map(~ cut_at(., no = n_clusters))
   
   # list of word clusters at each age

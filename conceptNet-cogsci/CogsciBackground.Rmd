@@ -1,0 +1,84 @@
+---
+title: "CogSci Background Analysis"
+author: "Isaac Scheinfeld"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: default
+---
+
+# Setup
+
+```{r echo=FALSE, message=FALSE, warning=FALSE} 
+library(purrr) # fp library
+library(readr) # read text data files (csv, etc.)
+library(ggplot2) # plotting
+library(dplyr) # for working with datafram-like objects
+library(tidyr) # for data tidying
+library(wordbankr) # access to wordbank data
+library(stringr) # common string operations
+library(igraph) # network analysis and visualization
+library(tibble) # modern dataframes
+library(tidygraph)
+library(matrixStats)
+library(memoise)
+
+source("helpers/wb_helper.r")
+source("helpers/word2vec_helper.r")
+source("helpers/network_helper.r")
+source("helpers/random_helper.r")
+source("helpers/dynamics_helper.r")
+source("helpers/statistics_helper.r")
+```
+
+## Nouns
+
+We begin by importing data from wordbank. Age of aquisition (in months, it starts with 16, 17,..) is that at which 50% of children can produce the word. We also do naive triming at this point, this means we are ignoring homophone/polysemy (chiken (food), chiken (animals), etc,.. but we will have to be careful in our choices if we are preparing later for publication.
+
+```{r warning=FALSE}
+get_language_vocab_ <- function(lang) {
+  return(make_vocab_dataframe(lang=lang,
+                              lang_form = "WS",
+                              lex_class = "nouns") %>%
+           trim_all_unilemma() %>% # TODO check trimming
+           trim_all_definition() %>%
+           arrange(age) %>%            # keep first age for duplicates
+           distinct(uni_lemma, .keep_all = TRUE) %>%
+           select(uni_lemma, definition, age, category))
+}
+
+get_language_vocab <- memoize(get_language_vocab_) # memoize to prevent re-downloading dataset TODO check if this works
+```
+
+## 
+
+## Build Word2Vec Network Evolution
+```{r message=FALSE}
+test_vocab <- get_language_vocab("German")
+test_w2v_network <- vocab_to_w2v_network(test_vocab)
+test_feature_network <- vocab_to_feature_network(test_vocab, c('function'))
+
+transitivity(test_w2v_network)
+transitivity(test_feature_network) 
+
+# weights = E(test_w2v_network)$w2v_similarity
+# weights = E(test_feature_network)$shared
+
+
+```
+
+
+```{r}
+w2v_clusters <- cut_at(w2v_walktrap(test_w2v_network), no = 3)
+feature_clusters <- cut_at(feature_walktrap(test_feature_network), no = 3)
+
+plot_vocab_network(test_w2v_network, 
+                   layout = NULL, 
+                   name=NA, 
+                   frame=FALSE, 
+                   clusters=w2v_clusters, 
+                   plot_title = NULL, 
+                   edge_color = "grey", 
+                   labels=V(test_w2v_network)$uni_lemma)
+```
+

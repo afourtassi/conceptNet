@@ -21,7 +21,9 @@ make_feature_links <- function(vocab, feature_types) {
   
   pairs <- inner_join(features, features, by="Feature") %>%
     filter(Concept.x < Concept.y) %>% # remove duplicates
-    count(Concept.x, Concept.y) %>%
+    group_by(Concept.x, Concept.y) %>%
+    summarise(n=n()) %>%
+    ungroup() %>%
     rename(from = Concept.x, to = Concept.y, shared = n)
   
   return(pairs)
