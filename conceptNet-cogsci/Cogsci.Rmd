@@ -240,15 +240,15 @@ cluster_randomizations <-  c(TRUE, FALSE)
 
 ### compute cluster randomization measurements, TAKES A WHILE
 
-cluster_randomization_measurements <- run_experiment(
-                          languages = languages,
-                          measures = measures,
-                          aoa_randomizations = c("none"),
-                          cluster_randomizations = c(TRUE, FALSE),
-                          cluster_counts = 2:5,
-                          samples = 50)
-
-saveRDS(cluster_randomization_measurements, "cluster_randomization_measurements.rds")
+# cluster_randomization_measurements <- run_experiment(
+#                           languages = languages,
+#                           measures = measures,
+#                           aoa_randomizations = c("none"),
+#                           cluster_randomizations = c(TRUE, FALSE),
+#                           cluster_counts = 2:5,
+#                           samples = 50)
+# 
+# saveRDS(cluster_randomization_measurements, "cluster_randomization_measurements.rds")
 
 measurements <- readRDS("measurements.rds")
 cluster_randomization_measurements <- readRDS("cluster_randomization_measurements.rds")
