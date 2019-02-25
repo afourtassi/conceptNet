@@ -56,15 +56,16 @@ get_language_vocab <- memoize(get_language_vocab_) # memoize to prevent re-downl
 
 
 ```{r message=FALSE}
-clusters_evolution <- function(vocab, n_clusters, min_age, max_age, randomization) {
+clusters_evolution <- function(vocab, n_clusters, min_age, max_age,
+                               aoa_randomization, cluster_randomization = FALSE) {
   
-  if(randomization == "none") {
+  if(aoa_randomization == "none") {
     # do nothing
-  } else if(randomization == "random_aoa") {
+  } else if(aoa_randomization == "random_aoa") {
     vocab <- randomize_aoa(vocab) # TODO handle randomization, write "randomize_aoa"" in random_helper.r
-  } else if(randomization == "to_nearest_aoa") {
+  } else if(aoa_randomization == "to_nearest_aoa") {
     vocab <- randomize_aoa_to_nearest(vocab)
-  } else if(randomization == "within_last_clustering") {
+  } else if(aoa_randomization == "within_last_clustering") {
     vocab <- randomize_within_last_clustering(vocab, n_clusters)
   } else {
     stop("Randomization argument incorrect.")
@@ -88,6 +89,10 @@ clusters_evolution <- function(vocab, n_clusters, min_age, max_age, randomizatio
   
   # list of word clusters at each age
   clusters_evo <- map2(vocab_evo, membership_evo, build_clusters)
+  
+  if(cluster_randomization) {
+    clusters_evo <- map(clusters_evo, randomize_clustering)
+  }
   
   return(clusters_evo)
 }
@@ -121,75 +126,78 @@ run_measure <- function(clusters_evo, measure) {
 # together to avoid repeatedly sampling clusterings
 # -----------------------------------------------------------------------------------------------
 
-measure_cluster_dynamics <- function(language, n_clusters, measures, randomizations, samples) {
-    vocab <- get_language_vocab(language)
+measure_cluster_dynamics <- function(language, n_clusters, measures,
+                                     aoa_randomizations, 
+                                     cluster_randomizations, # c(TRUE, FALSE)
+                                     samples) {
+  vocab <- get_language_vocab(language)
+  
+  # measurement schema : age, measure, randomization, sample, value
+  measurements <- list() # list of measurement tibbles
+  
+  # true vocabulary sizes (full vocabulary size at each month)
+  measurements[[length(measurements) + 1]] <-
+    tibble(age = min(vocab$age):max(vocab$age),
+           measure = "true_vocab_size",
+           aoa_randomization = NA, # same for all randomizations
+           cluster_randomization = NA,
+           sample = NA,
+           value = min(vocab$age):max(vocab$age) %>%
+             map(~ filter(vocab, age <= .)) %>%
+             map(nrow) %>%
+             unlist())
+  
+  
+  # --------------------- measures that don't depend on randomizations --------------------- #
+  true_clusters_evo <- clusters_evolution(vocab,
+                                          n_clusters,
+                                          min(vocab$age),
+                                          max(vocab$age),
+                                          aoa_randomization = "none",
+                                          cluster_randomization = FALSE)
+
+  # w2v vocabulary sizes (number of words know at each month in clustering)
+  measurements[[length(measurements) + 1]] <-
+    tibble(age = min(vocab$age):max(vocab$age),
+           measure = "w2v_vocab_size",
+           aoa_randomization = NA, # same for all randomizations
+           cluster_randomization = NA,
+           sample = NA,
+           value = unlist(map(true_clusters_evo, ~ length(unlist(.)))))
+  
+  # --------------------- (optionally) randomized measures --------------------- #
+  
+  for (cluster_randomization in cluster_randomizations) {
     
-    # measurement schema : age, measure, randomization, sample, value
-    measurements <- list() # list of measurement tibbles
-    
-    # true vocabulary sizes (full vocabulary size at each month)
-    measurements[["true_vocab_sizes"]] <-
-      tibble(age = min(vocab$age):max(vocab$age),
-             measure = "true_vocab_size",
-             randomization = NA, # same for all randomizations
-             sample = NA,
-             value = min(vocab$age):max(vocab$age) %>%
-               map(~ filter(vocab, age <= .)) %>%
-               map(nrow) %>%
-               unlist())
-    
-    # --------------------- true aoa measures --------------------- #
-    true_clusters_evo <- clusters_evolution(vocab,
-                                            n_clusters,
-                                            min(vocab$age),
-                                            max(vocab$age),
-                                            randomization = "none")
-    
-    # w2v vocabulary sizes (number of words know at each month in clustering)
-    measurements[["w2v_vocab_sizes"]] <- 
-      tibble(age = min(vocab$age):max(vocab$age),
-             measure = "w2v_vocab_size",
-             randomization = NA, # same for all randomizations
-             sample = NA,
-             value = unlist(map(true_clusters_evo, ~ length(unlist(.)))))
-    
-    # dynamics measures
-    for (measure in measures) {
-      value <- run_measure(true_clusters_evo, measure)
-      measurements[[measure]] <-
-        tibble(age = min(vocab$age):max(vocab$age),
-               measure = measure,
-               randomization = "none",
-               sample = NA,
-               value = value)
-    }
-    
-    # --------------------- randomized aoa measures --------------------- #
-    for (randomization in randomizations) {
+    for (aoa_randomization in aoa_randomizations) {
       
       for (sample in 1:samples) {
         random_clusters_evo <- clusters_evolution(vocab,
                                                   n_clusters,
                                                   min(vocab$age),
                                                   max(vocab$age),
-                                                  randomization = randomization)
+                                                  aoa_randomization = aoa_randomization,
+                                                  cluster_randomization = cluster_randomization)
         
         for (measure in measures) {
           value <- run_measure(random_clusters_evo, measure)
-          measurements[[paste(randomization, measure, sample, sep = "__")]] <-
+          measurements[[length(measurements) + 1]] <-
             tibble(age = min(vocab$age):max(vocab$age),
                    measure = measure,
-                   randomization = randomization,
+                   aoa_randomization = aoa_randomization,
+                   cluster_randomization = cluster_randomization,
                    sample = sample,
                    value = value)
         }
       }
     }
-    
-    return(bind_rows(measurements))
+  }
+  
+  return(bind_rows(measurements))
 }
 
-run_experiment <- function(languages, measures, randomizations, cluster_counts, samples) {
+run_experiment <- function(languages, measures, aoa_randomizations,
+                           cluster_randomizations, cluster_counts, samples) {
   measurements = list()
   cat("measuring dynamics\n")
   for(language in languages) {
@@ -197,7 +205,8 @@ run_experiment <- function(languages, measures, randomizations, cluster_counts, 
     for(n_clusters in cluster_counts) {
       cat("    n_clusters: ", n_clusters, "\n")
       measurements[[length(measurements) + 1]] <- 
-        measure_cluster_dynamics(language, n_clusters, measures, randomizations, samples) %>%
+        measure_cluster_dynamics(language, n_clusters, measures,
+                                 aoa_randomizations, cluster_randomizations, samples) %>%
         mutate(language = language) %>%
         mutate(n_clusters = n_clusters) %>%
         select(language, n_clusters, everything())
@@ -214,20 +223,35 @@ languages <-  c("Croatian","Danish","English (American)", "French (Quebecois)", 
 
 measures <- c("pair_precision_to_last", "pair_recall_to_last", "pair_f1_to_last", "min_max_size_ratio")
 
-randomizations <- c("random_aoa", "to_nearest_aoa", "within_last_clustering")
+aoa_randomizations <- c("none", "random_aoa", "to_nearest_aoa", "within_last_clustering")
+
+cluster_randomizations <-  c(TRUE, FALSE)
 
 ### compute measurements, TAKES A LONG TIME
 
 # measurements <- run_experiment(languages = languages,
 #                           measures = measures,
-#                           randomizations = randomizations,
+#                           aoa_randomizations = randomizations,
+#                           cluster_randomizations = c(FALSE)
 #                           cluster_counts = 2:5,
 #                           samples = 50)
 # 
 #saveRDS(measurements, "measurements.rds")
 
-measurements <- readRDS("measurements.rds")
+### compute cluster randomization measurements, TAKES A WHILE
 
+cluster_randomization_measurements <- run_experiment(
+                          languages = languages,
+                          measures = measures,
+                          aoa_randomizations = c("none"),
+                          cluster_randomizations = c(TRUE, FALSE),
+                          cluster_counts = 2:5,
+                          samples = 50)
+
+saveRDS(cluster_randomization_measurements, "cluster_randomization_measurements.rds")
+
+measurements <- readRDS("measurements.rds")
+cluster_randomization_measurements <- readRDS("cluster_randomization_measurements.rds")
 ```
 
 ## Summarize and Visualize Results

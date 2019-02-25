@@ -90,3 +90,15 @@ randomize_within_last_clustering <- function(vocab, n_clusters) {
     category = shuffled$category
   ))
 }
+
+randomize_clustering <- function(clustering) {
+  lengths <- map(clustering, length)
+  words <- sample(unlist(clustering))
+  
+  new_clustering <- list()
+  for (l in lengths) {
+    new_clustering[[length(new_clustering) + 1]] <- words[1:l]
+    words <- words[l+1:length(words)]
+  }
+  return(new_clustering)
+}
