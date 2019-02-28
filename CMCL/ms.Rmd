@@ -105,17 +105,17 @@ min_per <- round(mysum$percent[which(mysum$language=="Turkish")],2)
 
 The networks' nodes were nouns from Wordbank \cite{frank2017}, an open repository aggregating cross-linguistic developmental data of the MacArthur-Bates Communicative Development Inventory (CDI), a parent report vocabulary checklist, Toddler version \cite{fenson94}. Pairs of nouns were linked by weighted edges representing their semantic similarity derived based on co-occurrence in the corpus of child-directed speech CHILDES \cite{macwhinney2014}, using Word2Vec algorithm \cite{mikolov2013}. 
 
-First, we constructed the end-state network based on all nouns learned by the last age of acqusition. We used a subset of CDI nouns for which cross-linguistic translations are present, allowing us to explore cross-linguistic variability. We used data from the ten following languages: Croatian, Danish, English, French, Italian, Norwegian, Russian, Spanish, Swedish, and Turkish. The size of this subset varied from `r max_n` in Russian (representing `r max_per`% of total nouns in this language) to `r min_n` in Turkish (representing `r min_per`% of total nouns). Second, in order to study development towards the end-state, we constructed a different network at each month, based on the nouns that have been learned by that month. 
+First, we constructed the end-state network based on all nouns learned by the last age of acquisition. We used a subset of CDI nouns for which cross-linguistic translations are present, allowing us to explore cross-linguistic variability. We used data from the ten following languages: Croatian, Danish, English, French, Italian, Norwegian, Russian, Spanish, Swedish, and Turkish. The size of this subset varied from `r max_n` in Russian (representing `r max_per`% of total nouns in this language) to `r min_n` in Turkish (representing `r min_per`% of total nouns). Second, in order to study development towards the end-state, we constructed a different network at each month, based on the nouns that have been learned by that month. 
 
 ## Identifying abstract concepts in a network 
 
 We assume that abstract concepts correspond to clusters of highly interconnected nodes in the networks. We identified such clusters using  WalkTrap \cite{pons2006}, an unsupervised community detection algorithm based on the fact that a random walker tends to be trapped in dense parts of a network. Figure \ref{fig:network} shows the outcome of cluster identification in the end-state network in English. The algorithm obtained four major clusters corresponding to the categories of clothes, food, animal and artifacts. We refer to this end-state clustering as $\mathcal{C}^*$. To examine developmental change in the conceptual organization, we ran the cluster identification algorithm at each month of acquisition $t$, and we compared the resulting clustering, noted $\mathcal{C}_t$, to that of the end-state $\mathcal{C}^*$. The method of this comparison is detailed below.
 
 
-```{r results, fig.env = "figure*", fig.pos = "h", fig.align = "center", set.cap.width=T, num.cols.cap=2, fig.width=7, fig.height=3, fig.cap = "Mean precision and recall scores obtained through comparing the end-state clustering to clusterings at different months of acquisition, averaged across languages. Colors indicates real and hypothetical word sampling mechanisms. Errors bars represent 95\\% confidence intervals."}
+```{r results, fig.env = "figure*", fig.pos = "h", fig.align = "center", set.cap.width=T, num.cols.cap=2, fig.width=7, fig.height=3, fig.cap = "Mean precision and recall scores obtained through comparing the end-state clustering to clusterings at different months of acquisition, averaged across languages and numbers of clusters. Colors indicates real and hypothetical word sampling mechanisms. Errors bars represent 95\\% confidence intervals."}
 
 measurements <- readRDS("data/measurements.rds")
-meas_rand <- readRDS("data/cluster_randomization_measurements.rds")
+#meas_rand <- readRDS("data/cluster_randomization_measurements.rds")
 
 all <- measurements %>%
   filter(measure %in% c("pair_precision_to_last", "pair_recall_to_last"),
@@ -124,11 +124,11 @@ all <- measurements %>%
   #group_by(n_clusters, age, measure, randomization) %>%
   #summarise(mean = mean(value))
 
-#all_rand <- meas_rand %>%
+##all_rand <- meas_rand %>%
 #  filter(measure %in% c("pair_precision_to_last", "pair_recall_to_last"),
 #         #randomization != "to_nearest_aoa",
-#         n_clusters != '5') %>%
-#  as.data.frame()
+ #                 n_clusters != '5') %>%
+ #as.data.frame()
   
 
 all_sum <- all %>%
@@ -137,20 +137,20 @@ all_sum <- all %>%
   #summarise(myMean = mean(value, na.rm = TRUE))
 
 #all_sum_rand <- all_rand %>%
-#  group_by(measure, cluster_randomization, age) %>%
-#  multi_boot_standard(col = "value", na.rm = TRUE)
+#  group_by(measure, language, cluster_randomization, age) %>%
+# multi_boot_standard(col = "value", na.rm = TRUE)
   #summarise(myMean = mean(value, na.rm = TRUE))
 
 all_sum$measure <- mapvalues(all_sum$measure, from = c("pair_precision_to_last", "pair_recall_to_last"), to = c("Precision", "Recall"))
-all_sum$randomization <- mapvalues(all_sum$randomization, from = c("none", "random_aoa", "within_last_clustering"), to = c("Real", "Exploration","Exploitation"))
+all_sum$randomization <- mapvalues(all_sum$randomization, from = c("none", "random_aoa", "within_last_clustering"), to = c("Real", "Simultaneous","Sequential"))
 
 all_sum_corr <- all_sum %>%
   as.data.frame() %>%
   select(-ci_lower, -ci_upper) %>%
   spread(randomization, mean) %>%
   group_by(measure) %>%
-  dplyr::summarise(sim = round(cor(Real, Exploration)^2, 2),
-            seq = round(cor(Real, Exploitation)^2, 2))
+  dplyr::summarise(sim = round(cor(Real, Simultaneous)^2, 2),
+            seq = round(cor(Real, Sequential)^2, 2))
 
 
 r_sim_prec <- all_sum_corr$sim[which(all_sum_corr$measure=="Precision")]
@@ -160,7 +160,7 @@ r_seq_prec <- all_sum_corr$seq[which(all_sum_corr$measure=="Precision")]
 r_seq_rec <- all_sum_corr$seq[which(all_sum_corr$measure=="Recall")]
 
 
-all_sum$randomization <- factor(all_sum$randomization, levels = c("Real", "Exploration","Exploitation"))
+all_sum$randomization <- factor(all_sum$randomization, levels = c("Real", "Simultaneous","Sequential"))
 
 
 ggplot(data=all_sum, aes(x=age, y=mean, col=randomization)) +
@@ -178,6 +178,7 @@ ggplot(data=all_sum, aes(x=age, y=mean, col=randomization)) +
   theme(legend.position="bottom")
 
 
+
 ```
 
 ## Measuring conceptual development 
@@ -191,9 +192,9 @@ $$
 $$
 R(\mathcal{C}_t) = \frac{|tp(\mathcal{C}_t)|}{|tp(\mathcal{C}_t)| + |fn(\mathcal{C}_t)|}
 $$
-Where $tp(\mathcal{C}_t)$ are the true positives, defined as the word pairs that are placed in the same cluster under $\mathcal{C}_t$ and in the same cluster under $\mathcal{C}^*$. $fp(\mathcal{C}_t)$ are the false positives defined as the pairs placed in the same cluster under $\mathcal{C}_t$ and in different clusters under $\mathcal{C}^*$. Finally, $fn(\mathcal{C}_t)$ are the false positives defiened as the pairs placed in different clusters under $\mathcal{C}_t$ and in the same cluster under $\mathcal{C}^*$.
+Where $tp(\mathcal{C}_t)$ are the true positives, defined as the word pairs that are placed in the same cluster under $\mathcal{C}_t$ and in the same cluster under $\mathcal{C}^*$. $fp(\mathcal{C}_t)$ are the false positives defined as the pairs placed in the same cluster under $\mathcal{C}_t$ and in different clusters under $\mathcal{C}^*$. Finally, $fn(\mathcal{C}_t)$ are the false positives defined as the pairs placed in different clusters under $\mathcal{C}_t$ and in the same cluster under $\mathcal{C}^*$.
 
-We made this comparison using different degrees of clustering granularity. More precisely, we fixed the same number of clusters for both $\mathcal{C}_t$ and $\mathcal{C}^*$, and we varied this number from two to four clusters. We did not use the trivial case of one cluster, nor did we did use more than four clusters, since this number was optimal for the largest network (i.e., the end-state network) based on the modularity maximization criterion \cite{newman2006}.
+We made this comparison using different degrees of clustering granularity. More precisely, we fixed the same number of clusters for *both* $\mathcal{C}_t$ and $\mathcal{C}^*$, and we varied this number from two to four clusters. We did not use the trivial case of one cluster, nor did we did use more than four clusters, since this number was optimal for the largest network (i.e., the end-state network) based on the modularity maximization criterion \cite{newman2006}.
 
 ## Learning mechanisms
 
@@ -247,4 +248,6 @@ That said, these developmental changes were not necessarily related to specific 
 One limitation of this study is that we used the normative age of acquisition, computed using different children at different age groups. This choice was due to the cross-sectional nature of available CDI data. Though such a measure has been widely used to study important aspects of the early lexical networks \cite{hills2009,stella2017,storkel2009}, it only applies at the population level. In our case, though we found that concepts develop simultaneously, individual children may display, at least locally, a sequential-like behavior. For example, prior knowledge about dinosaurs may enable the learning of new dinosaur-related words more easily \cite{chi1983}.
 
 In sum, this work provided a quantitative account of how abstract concepts can emerge from the interaction of the children's emerging vocabulary and the properties of their linguistic input. One important direction for future work is to investigate the extent to which the correlational findings obtained in this study (e.g., the identity of categories formed across development or the fact that categorization errors decrease with the size of the lexicon) can be corroborated by controlled behavioral experiments. 
+
+\vspace{1em} \fbox{\parbox[b][][c]{7.3cm}{\centering All data and code will be available online}} \vspace{1em}
 
