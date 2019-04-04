@@ -58,6 +58,8 @@
 \def\tightlist{}
 
 
+\eaclfinalcopy
+\def\eaclpaperid{}
 % If you have:
 %   final_submission: yes
 %   eaclpaperid: <your ID number>
@@ -75,11 +77,11 @@
 
 \newcommand\BibTeX{B{\sc ib}\TeX}
 
-\title{The development of abstract concepts in children's early lexical
-networks}
+\title{The Development of Abstract Concepts in Children's Early Lexical
+Networks}
 
 
-\author{{\large \bf Author 1} \\ \texttt{author1@university.edu} \\ Department of Psychology \\ Some University \And {\large \bf Author 2} \\ \texttt{author1@university.edu} \\ Department of Psychology \\ Some University}
+\author{{\large \bf Abdellah Fourtassi *}  \qquad {\large \bf Isaac L. Scheinfeld *} \qquad {\large \bf Michael C. Frank} \\ \texttt{\{afourtas, ischeinfeld, mcfrank\}@stanford.edu} \\ Department of Psychology \\ Stanford University}
 
 \date{}
 
@@ -127,13 +129,17 @@ caregivers). Here we explore how abstract concepts may develop from the
 children's perspective, investigating how their word learning trajectory
 influences the higher-level organization of their developing lexicon.
 
-We study development in light of two hypothetical models. On the first,
-called the simultaneous model, learning starts by exploring all parts of
-the conceptual space; categories are refined simultaneously over
-development. On the second, called the sequential model, learning starts
-by exploring a small region of the conceptual space (e.g., the category
-``animals'') and only after the refinement of this category, does the
-learner move to another.
+We study the real conceptual development (i.e.~as induced by the real
+trajectory of word learning) in comparison to two hypothetical
+developmental scenarios induced by two divergent proposals about the
+trajectory of word learning. On the first proposal, past lexical
+knowledge facilitates the future learning of related words, e.g., the
+word ``cat'' is more likely to be followed by another animal name than
+it is to be followed by a food name \cite{steyvers2005,borovsky2016}. On
+the second proposal, past lexical knowledge does not influence future
+learning, e.g., learning the word ``cat'' does not necessarily increase
+the odds that the next word will be another animal name
+\cite{hills2009,sizemore2018}.
 
 The paper is organized as follows. First, we describe the research
 strategy. In brief, we represented the developing lexicon as an evolving
@@ -157,8 +163,8 @@ or a sequential conceptual growth.
 
 \section{Data and Methods}\label{data-and-methods}
 
-\subsection{Constructing lexical
-networks}\label{constructing-lexical-networks}
+\subsection{Constructing Lexical
+Networks}\label{constructing-lexical-networks}
 
 The networks' nodes were nouns from Wordbank \cite{frank2017}, an open
 repository aggregating cross-linguistic developmental data of the
@@ -181,8 +187,8 @@ order to study development towards the end-state, we constructed a
 different network at each month, based on the nouns that have been
 learned by that month.
 
-\subsection{Identifying abstract concepts in a
-network}\label{identifying-abstract-concepts-in-a-network}
+\subsection{Identifying Abstract Concepts in a
+Network}\label{identifying-abstract-concepts-in-a-network}
 
 We assume that abstract concepts correspond to clusters of highly
 interconnected nodes in the networks. We identified such clusters using
@@ -209,8 +215,8 @@ clustering, noted \(\mathcal{C}_t\), to that of the end-state
 \end{figure*}
 \end{CodeChunk}
 
-\subsection{Measuring conceptual
-development}\label{measuring-conceptual-development}
+\subsection{Measuring Conceptual
+Development}\label{measuring-conceptual-development}
 
 We measure conceptual development by comparing \(\mathcal{C}_t\) to
 \(\mathcal{C}^*\) across time. We used a standard method in clustering
@@ -231,34 +237,38 @@ and in the same cluster under \(\mathcal{C}^*\). \(fp(\mathcal{C}_t)\)
 are the false positives defined as the pairs placed in the same cluster
 under \(\mathcal{C}_t\) and in different clusters under
 \(\mathcal{C}^*\). Finally, \(fn(\mathcal{C}_t)\) are the false
-positives defined as the pairs placed in different clusters under
+negatives defined as the pairs placed in different clusters under
 \(\mathcal{C}_t\) and in the same cluster under \(\mathcal{C}^*\).
 
 We made this comparison using different degrees of clustering
 granularity. More precisely, we fixed the same number of clusters for
 \emph{both} \(\mathcal{C}_t\) and \(\mathcal{C}^*\), and we varied this
 number from two to four clusters. We did not use the trivial case of one
-cluster, nor did we did use more than four clusters, since this number
-was optimal for the largest network (i.e., the end-state network) based
-on the modularity maximization criterion \cite{newman2006}.
+cluster, nor did we use more than four clusters, since this number was
+optimal for the largest network (i.e., the end-state network) based on
+the modularity maximization criterion \cite{newman2006}.
 
-\subsection{Learning mechanisms}\label{learning-mechanisms}
+\subsection{Learning Mechanisms}\label{learning-mechanisms}
 
 We examined how abstract concepts develop under an average word learning
 trajectory derived from real developmental data. To construct this
 trajectory, we used the normative age of acquisition, that is, the age
 at which a word is produced by at least 50\% of children in each
-language \cite{goodman2008}. We compared this development to the
-development induced by a simultaneous model and the development induced
-by a sequential model.
+language \cite{goodman2008}. As mentioned above, we compared this
+development to the development induced by a first hypothetical
+trajectory where known words influence future word learning and a second
+hypothetical trajectory where learning proceeds regardless of what words
+are already known.
 
-The simultaneous model was instantiated as a uniform sampling across
-time from the end-state vocabulary. The sequential model had the
-additional constraint of sampling from one category at a time: the first
-word is selected randomly from one cluster, subsequent words are sampled
-from the same cluster. After all words from this cluster are used, a
-word from a different cluster is chosen, and the same process is
-repeated until all clusters are covered.
+We instantiated the first trajectory through sampling from one
+conceptual category at a time: the first word is selected randomly from
+one cluster, subsequent words are sampled from the same cluster. After
+all words from this cluster are used, a word from a different cluster is
+chosen, and the same process is repeated until all clusters are covered.
+We call this sampling procedure the \emph{sequential model}. We
+instantiated the second trajectory through a uniform sampling across
+time from the end-state vocabulary. We call this sampling procedure the
+\emph{simultaneous model}.
 
 \section{Results}\label{results}
 
@@ -355,7 +365,7 @@ controlled behavioral experiments.
 
 \vspace{1em}
 
-\fbox{\parbox[b][][c]{7.3cm}{\centering All data and code will be available online}}
+\fbox{\parbox[b][][c]{7.3cm}{\centering All data and code are available at https://github.com/afourtassi/conceptNet}}
 \vspace{1em}
 
 \bibliography{eacl2017}
