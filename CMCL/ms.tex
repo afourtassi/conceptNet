@@ -131,15 +131,14 @@ influences the higher-level organization of their developing lexicon.
 
 We study the real conceptual development (i.e.~as induced by the real
 trajectory of word learning) in comparison to two hypothetical
-developmental scenarios induced by two divergent proposals about the
-trajectory of word learning. On the first proposal, past lexical
-knowledge facilitates the future learning of related words, e.g., the
-word ``cat'' is more likely to be followed by another animal name than
-it is to be followed by a food name \cite{steyvers2005,borovsky2016}. On
-the second proposal, past lexical knowledge does not influence future
-learning, e.g., learning the word ``cat'' does not necessarily increase
-the odds that the next word will be another animal name
-\cite{hills2009,sizemore2018}.
+developmental scenarios induced by two possible mechanisms of word
+learning. On the first mechanism, past lexical knowledge facilitates the
+future learning of related words, e.g., the word ``cat'' is more likely
+to be followed by another animal name than it is to be followed by a
+food name \cite{steyvers2005,borovsky2016}. On the second mechanism,
+past lexical knowledge does not influence future learning, e.g.,
+learning the word ``cat'' does not necessarily increase the odds that
+the next word will be another animal name \cite{hills2009,sizemore2018}.
 
 The paper is organized as follows. First, we describe the research
 strategy. In brief, we represented the developing lexicon as an evolving
@@ -147,8 +146,8 @@ network and we used word co-occurrence in parent speech as a measure of
 words' relatedness. We operationalized abstract concepts as the highly
 interconnected regions of the network. Second, we explore how the
 pattern of children's word learning influences higher-level conceptual
-development, and whether this development corresponds to a simultaneous
-or a sequential conceptual growth.
+development, and whether this development corresponds to simultaneous or
+sequential conceptual growth.
 
 \begin{CodeChunk}
 \captionsetup{width=0.8\textwidth}\begin{figure*}[h]
@@ -168,24 +167,23 @@ Networks}\label{constructing-lexical-networks}
 
 The networks' nodes were nouns from Wordbank \cite{frank2017}, an open
 repository aggregating cross-linguistic developmental data of the
-MacArthur-Bates Communicative Development Inventory (CDI), a parent
-report vocabulary checklist, Toddler version \cite{fenson94}. Pairs of
-nouns were linked by weighted edges representing their semantic
-similarity derived based on co-occurrence in the corpus of
-child-directed speech CHILDES \cite{macwhinney2014}, using Word2Vec
-algorithm \cite{mikolov2013}.
+MacArthur-Bates Communicative Development Inventory (CDI), Toddler
+version \cite{fenson94}. Pairs of nouns were linked by weighted edges
+representing their semantic similarity derived based on co-occurrence in
+the corpus of child-directed speech CHILDES \cite{macwhinney2014}, using
+the Word2Vec algorithm \cite{mikolov2013}.
 
 First, we constructed the end-state network based on all nouns learned
 by the last age of acquisition. We used a subset of CDI nouns for which
 cross-linguistic translations are present, allowing us to explore
-cross-linguistic variability. We used data from the ten following
+cross-linguistic variability. We used data from the following ten
 languages: Croatian, Danish, English, French, Italian, Norwegian,
 Russian, Spanish, Swedish, and Turkish. The size of this subset varied
-from 314 in Russian (representing 100\% of total nouns in this language)
-to 176 in Turkish (representing 59.26\% of total nouns). Second, in
-order to study development towards the end-state, we constructed a
-different network at each month, based on the nouns that have been
-learned by that month.
+from 314 in Russian (representing 100\% of total nouns present in the
+CDI data of this language) to 176 in Turkish (representing 59.26\% of
+total nouns). Second, in order to study development towards the
+end-state, we constructed a different network at each month, based on
+the nouns that have been learned by that month.
 
 \subsection{Identifying Abstract Concepts in a
 Network}\label{identifying-abstract-concepts-in-a-network}
@@ -234,10 +232,10 @@ R(\mathcal{C}_t) = \frac{|tp(\mathcal{C}_t)|}{|tp(\mathcal{C}_t)| + |fn(\mathcal
 \] Where \(tp(\mathcal{C}_t)\) are the true positives, defined as the
 word pairs that are placed in the same cluster under \(\mathcal{C}_t\)
 and in the same cluster under \(\mathcal{C}^*\). \(fp(\mathcal{C}_t)\)
-are the false positives defined as the pairs placed in the same cluster
+are the false positives, defined as the pairs placed in the same cluster
 under \(\mathcal{C}_t\) and in different clusters under
 \(\mathcal{C}^*\). Finally, \(fn(\mathcal{C}_t)\) are the false
-negatives defined as the pairs placed in different clusters under
+negatives, defined as the pairs placed in different clusters under
 \(\mathcal{C}_t\) and in the same cluster under \(\mathcal{C}^*\).
 
 We made this comparison using different degrees of clustering
