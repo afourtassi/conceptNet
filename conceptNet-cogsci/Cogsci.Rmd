@@ -278,7 +278,7 @@ if (to_pdf) {
 to_pdf = FALSE
 
 for (measure_to_plot in measures) {
-  for (randomization_to_plot in randomizations) {
+  for (randomization_to_plot in aoa_randomizations) {
     
     summary_fname <- paste(measure_to_plot, randomization_to_plot, sep="__") %>%
       paste("pdf", sep = ".")
