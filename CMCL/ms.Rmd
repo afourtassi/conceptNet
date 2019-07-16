@@ -1,15 +1,17 @@
 ---
-title: "The development of abstract concepts in the early lexical network"
+title: "The Development of Abstract Concepts in Children's Early Lexical Networks"
 
 author-information: > 
-    \author{{\large \bf Author 1} \\ \texttt{author1@university.edu} \\ Department of Psychology \\ Some University
-    \And {\large \bf Author 2} \\ \texttt{author1@university.edu} \\ Department of Psychology \\ Some University}
+    \author{{\large \bf Abdellah Fourtassi *} 
+    \qquad {\large \bf Isaac L. Scheinfeld *}
+    \qquad {\large \bf Michael C. Frank} \\ \texttt{\{afourtas, ischeinfeld, mcfrank\}@stanford.edu} \\ Department of Psychology \\ Stanford University}
+
 
 abstract: 
-    "How do children learn abstract concepts such as animal vs. artefact? Previous research suggests that such concepts can be derived using cues from the language they hear around them, e.g., word co-occurrence.  We propose that such information can be integrated in the evolving lexical network, and higher-level organization can be identified bottom-up as the dense components in this network. We found that early abstract categories develop simultaneously thanks to the children's word trajectory which favors the exploration of the global conceptual space."
+    "How do children learn abstract concepts such as animal vs. artifact? Previous research has suggested that such concepts can partly be derived using cues from the language children hear around them. Following this suggestion, we propose a model where we represent the children's developing lexicon as an evolving network. The nodes of this network are based on vocabulary knowledge as reported by parents, and the edges between pairs of nodes are based on the probability of their co-occurrence in a corpus of child-directed speech. We found that several abstract categories can be identified as the dense regions in such networks. In addition, our simulations suggest that these categories develop simultaneously, rather than sequentially, thanks to the children's word learning trajectory which favors the exploration of the global conceptual space."
     
 
-final_submission: no
+final_submission: yes
 # If yes, uncomment line below and add your own ID
 # eaclpaperid: "1234"
 
@@ -28,6 +30,7 @@ knitr::opts_chunk$set(fig.width=3, fig.height=3, fig.crop = F, fig.pos = "tb", f
 ```{r, libraries}
 library(png)
 library(dplyr)
+library(tidyr)
 library(plyr)
 library(broom)
 #library(tidyr)
@@ -48,37 +51,73 @@ library(xtable)
 
 Concepts are the building blocks of ideas. For example, the thought "birds are animals" requires the knowledge of both the concept "birds" and the concept "animal". They enable inductive reasoning and predictive inferences which guide behavior and explanation (Murphy, 2002). 
 -->
-One of the central challenges in cognitive development is to understand how concepts develop \cite{carey2009,keil1992,gopnik1997}. Of particular interest is the case of abstract concepts which have non-obvious shared properties such as "animal" and "artefacts". For example, a cat and a bird are perceptually quite different but they share some fundamental properties (e.g., breathing, feeding, and reproducing) which make them animals, and which set them apart from  the category of artefacts. In such cases learning requires, at least in part, cultural/linguistic cues which provide information beyond what can be obtained through the senses \cite{gelman2009,harris2012,csibra2009}
+One of the central challenges in cognitive development is to understand how concepts develop \cite{carey2009,keil1992,gopnik1997}. Of particular interest is the case of abstract concepts which have non-obvious shared properties such as "animal" and "artifact". For example, a cat and a bird are perceptually quite different but they share some fundamental properties (e.g., breathing, feeding, and reproducing) which make them animals (as opposed to artifacts). In such cases, learning requires in part cultural/linguistic cues which provide information beyond what can be obtained through the senses \cite{gelman2009,harris2012,csibra2009}.
 
-One way children's conceptual learning can benefit from the language they hear around them is through word co-occurrence. For example, one can learn an abstract concept (e.g., animal) simply by observing how its instances (e.g., "cat" and "bird") go together in speech. This is a plausible learning strategy. On the one hand, experimental research has shown that children track co-occurrence statistics \cite{saffran1996}. On the other hand, inspection of the caregiver’s input shows that it contains rich co-occurrence information about various abstract concepts \cite{huebner2018}.
+One way children's conceptual learning can benefit from the language they hear around them is through word co-occurrence. For example, one can learn an abstract concept (e.g., animal) simply by observing how its instances (e.g., "cat" and "bird") go together in speech. Indeed, previous work has shown that the caregiver’s input contains rich co-occurrence information about various abstract concepts \cite{huebner2018}. This work, however, has explored the conceptual space from an adult perspective (using the words uttered by the caregivers).  Here we explore how abstract concepts may develop from the children's perspective, investigating how their word learning trajectory influences the higher-level organization of their developing lexicon.
 
-What remains to be investigated is the way abstract concepts develop from the interaction of the children's learning mechanisms and the structure of their linguistic input. We study this development and compare it to two hypothetical developmental scenarios. On the first, learning starts by exploring the global conceptual structure; categories are refined simultaneously over development (we call this mechanism exploration-based learning). On the second scenario, learning starts by exploring a small region of the conceptual space (e.g., the category "animals") and only after the refinement of this category, does the learner move to another (we call this mechanism exploitation-based learning).
+<!--On the other hand, children can track co-occurrence statistics \cite{saffran1996} and there is evidence that they use co-occurrence to make category-based generalization \cite{fisher2011,matlen2015}. 
+Here we investigate the way abstract concepts may develop from the interaction of the children developing lexicon and co-occurrence information in the caregiver's speech. 
+-->
+We study the real conceptual development (i.e. as induced by the real trajectory of word learning) in comparison to two hypothetical developmental scenarios induced by two possible mechanisms of word learning. On the first mechanism, past lexical knowledge facilitates the future learning of related words, e.g., the word "cat" is more likely to be followed by another animal name than it is to be followed by a food name \cite{steyvers2005,borovsky2016}. On the second mechanism, past lexical knowledge does not influence future learning, e.g., learning the word "cat" does not necessarily increase the odds that the next word will be another animal name  \cite{hills2009,sizemore2018}. 
 
-The paper is organized as follows. First we describe the research strategy. In brief, we represented the developing lexicon as an evolving network and we used word co-occurrence in parent speech as a measure of words' relatedness. We operationalized high-level concepts as the highly interconnected components of the network.  Second, we explore how the pattern of children's word learning influences higher-level conceptual development, and we compare this pattern to the development induced by the exploration-based and exploitation-based mechanisms. Finally, we discuss the findings in light of previous research. 
+The paper is organized as follows. First, we describe the research strategy. In brief, we represented the developing lexicon as an evolving network and we used word co-occurrence in parent speech as a measure of words' relatedness. We operationalized abstract concepts as the highly interconnected regions of the network.  Second, we explore how the pattern of children's word learning influences higher-level conceptual development, and whether this development corresponds to simultaneous or sequential conceptual growth. 
 
-```{r network, fig.env = "figure*", fig.pos = "h", fig.align = "center", set.cap.width=T, num.cols.cap=2, fig.width=5, fig.height=8, fig.cap = "Network obtained using a sample of nouns in CDI data (nodes), and co-occurrence-based similarity from a corpus of child-directed speech (edges). Colors indicate highly interconnected clusters identified using unsupervised network community detection. The clusters correspond, overall, to four higher-level concepts: animal, food, clothes, and artefacts."}
+```{r network, fig.env = "figure*", fig.pos = "h", fig.align = "center", set.cap.width=T, num.cols.cap=2, fig.width=5, fig.height=8, fig.cap = "Network obtained using a sample of nouns in CDI data (nodes), and co-occurrence-based similarity from a corpus of child-directed speech (edges). Colors indicate highly interconnected clusters identified using unsupervised network community detection. The clusters correspond, overall, to four higher-level concepts: animal, food, clothes, and artifacts."}
 
 img <- png::readPNG("figs/graph.png")
 grid::grid.raster(img)
 
 ```
 
+
+```{r}
+
+data_all <- feather::read_feather("../saved_data/data_all.feather")  
+
+data_all$language <- plyr::mapvalues(data_all$language, 
+                                 from = c("Croatian","Danish","English (American)", "French (Quebecois)", "Italian", "Norwegian", "Russian", "Spanish (Mexican)", "Swedish", "Turkish"), 
+                                 to = c("Croatian","Danish","English", "French", "Italian", "Norwegian", "Russian", "Spanish", "Swedish", "Turkish"))
+
+mysum <- data_all %>%
+  filter(measure == 'produces') %>%
+  #trim_all_unilemma() %>% # TODO check trimming
+  #trim_all_definition() %>%
+  distinct(language, uni_lemma, item) %>%
+  group_by(language) %>%
+  dplyr::summarise(missing = sum(is.na(uni_lemma)),
+            all = n()
+            ) %>%
+  mutate(n_uni = all-missing,
+    percent = (n_uni/all)*100) %>%
+    ungroup() %>%
+    filter(n_uni == min(n_uni) | n_uni == max(n_uni))
+
+max_n <- mysum$n_uni[which(mysum$language=="Russian")]
+max_per <- round(mysum$percent[which(mysum$language=="Russian")],2)
+
+min_n <- mysum$n_uni[which(mysum$language=="Turkish")]
+min_per <- round(mysum$percent[which(mysum$language=="Turkish")],2)
+
+  
+```
+
 # Data and Methods
 
-## Constructing lexical networks
+## Constructing Lexical Networks
 
-The networks' nodes were nouns form  Wordbank \cite{frank2017}, an open repository aggregating cross-linguistic language developmental data of the MacArthur-Bates Communicative Development Inventory (CDI), a parent report vocabulary checklist, Toddler version \cite{fenson94}. Pairs of nouns were linked by weighted edges representing their semantic similarity derived based on co-occurrence in the corpus of child directed speech CHILDES \cite{macwhinney2014}, using Word2Vec algorithm \cite{mikolov2013}. 
+The networks' nodes were nouns from Wordbank \cite{frank2017}, an open repository aggregating cross-linguistic developmental data of the MacArthur-Bates Communicative Development Inventory (CDI), Toddler version \cite{fenson94}. Pairs of nouns were linked by weighted edges representing their semantic similarity derived based on co-occurrence in the corpus of child-directed speech CHILDES \cite{macwhinney2014}, using the Word2Vec algorithm \cite{mikolov2013}. 
 
-First, we constructed the end-state network based on a subset of CDI data. This subset was made of nouns belonging to a diversity of semantic categories. Items of this subset (named "uni_lemmas" in the WordBank database) were translated across the languages used in this study, allowing us to account for cross-linguistic variability. Second, to study development towards the end-state, we constructed a different network at each month, based on the nouns that have been learned by that month. 
+First, we constructed the end-state network based on all nouns learned by the last age of acquisition. We used a subset of CDI nouns for which cross-linguistic translations are present, allowing us to explore cross-linguistic variability. We used data from the following ten languages: Croatian, Danish, English, French, Italian, Norwegian, Russian, Spanish, Swedish, and Turkish. The size of this subset varied from `r max_n` in Russian (representing `r max_per`% of total nouns present in the CDI data of this language) to `r min_n` in Turkish (representing `r min_per`% of total nouns). Second, in order to study development towards the end-state, we constructed a different network at each month, based on the nouns that have been learned by that month. 
 
-## Identifying high-level concepts in a network 
+## Identifying Abstract Concepts in a Network 
 
-We assume that high-level concepts correspond to clusters of highly interconnected nodes in the networks. We identified such clusters using  WalkTrap \cite{pons2006}, an unsupervised community detection algorithm based on the fact that a random walker tends to be trapped in dense parts of a network. Figure \ref{fig:network} shows the outcome of cluster identification in the end-state network. The algorithm obtained four major clusters corresponding to the categories of clothes, food, animal and artefacts. We refer to this end-state clustering as $\mathcal{C}^*$. To examine developmental change in the conceptual organization, we run the cluster identification algorithm at each month of acquisition $t$, and we compare the resulting clustering, noted $\mathcal{C}_t$, to that of the end-state $\mathcal{C}^*$. The method of this comparison is detailed below.
+We assume that abstract concepts correspond to clusters of highly interconnected nodes in the networks. We identified such clusters using  WalkTrap \cite{pons2006}, an unsupervised community detection algorithm based on the fact that a random walker tends to be trapped in dense parts of a network. Figure \ref{fig:network} shows the outcome of cluster identification in the end-state network in English. The algorithm obtained four major clusters corresponding to the categories of clothes, food, animal and artifacts. We refer to this end-state clustering as $\mathcal{C}^*$. To examine developmental change in the conceptual organization, we ran the cluster identification algorithm at each month of acquisition $t$, and we compared the resulting clustering, noted $\mathcal{C}_t$, to that of the end-state $\mathcal{C}^*$. The method of this comparison is detailed below.
 
 
-```{r results, fig.env = "figure*", fig.pos = "h", fig.align = "center", set.cap.width=T, num.cols.cap=2, fig.width=7, fig.height=3, fig.cap = "Mean precision and recall scores obtained through comparing the end-state clustering to clusterings at different months of acquisition, across different languages. Colors indicates real and hypothetical word sampling mechanisms. Errors bars represent 95\\% confidence intervals."}
+```{r results, fig.env = "figure*", fig.pos = "h", fig.align = "center", set.cap.width=T, num.cols.cap=2, fig.width=7, fig.height=3, fig.cap = "Mean precision and recall scores obtained through comparing the end-state clustering to clusterings at different months of acquisition, averaged across languages and numbers of clusters. Colors indicates real and hypothetical word sampling mechanisms. Errors bars represent 95\\% confidence intervals."}
 
 measurements <- readRDS("data/measurements.rds")
+#meas_rand <- readRDS("data/cluster_randomization_measurements.rds")
 
 all <- measurements %>%
   filter(measure %in% c("pair_precision_to_last", "pair_recall_to_last"),
@@ -87,15 +126,43 @@ all <- measurements %>%
   #group_by(n_clusters, age, measure, randomization) %>%
   #summarise(mean = mean(value))
 
+##all_rand <- meas_rand %>%
+#  filter(measure %in% c("pair_precision_to_last", "pair_recall_to_last"),
+#         #randomization != "to_nearest_aoa",
+ #                 n_clusters != '5') %>%
+ #as.data.frame()
+  
+
 all_sum <- all %>%
   group_by(measure, randomization, age) %>%
   multi_boot_standard(col = "value", na.rm = TRUE)
   #summarise(myMean = mean(value, na.rm = TRUE))
 
-all_sum$measure <- mapvalues(all_sum$measure, from = c("pair_precision_to_last", "pair_recall_to_last"), to = c("Precision", "Recall"))
-all_sum$randomization <- mapvalues(all_sum$randomization, from = c("none", "random_aoa", "within_last_clustering"), to = c("Real", "Exploration","Exploitation"))
+#all_sum_rand <- all_rand %>%
+#  group_by(measure, language, cluster_randomization, age) %>%
+# multi_boot_standard(col = "value", na.rm = TRUE)
+  #summarise(myMean = mean(value, na.rm = TRUE))
 
-all_sum$randomization <- factor(all_sum$randomization, levels = c("Real", "Exploration","Exploitation"))
+all_sum$measure <- mapvalues(all_sum$measure, from = c("pair_precision_to_last", "pair_recall_to_last"), to = c("Precision", "Recall"))
+all_sum$randomization <- mapvalues(all_sum$randomization, from = c("none", "random_aoa", "within_last_clustering"), to = c("Real", "Simultaneous","Sequential"))
+
+all_sum_corr <- all_sum %>%
+  as.data.frame() %>%
+  select(-ci_lower, -ci_upper) %>%
+  spread(randomization, mean) %>%
+  group_by(measure) %>%
+  dplyr::summarise(sim = round(cor(Real, Simultaneous)^2, 2),
+            seq = round(cor(Real, Sequential)^2, 2))
+
+
+r_sim_prec <- all_sum_corr$sim[which(all_sum_corr$measure=="Precision")]
+r_sim_rec <- all_sum_corr$sim[which(all_sum_corr$measure=="Recall")]
+
+r_seq_prec <- all_sum_corr$seq[which(all_sum_corr$measure=="Precision")]
+r_seq_rec <- all_sum_corr$seq[which(all_sum_corr$measure=="Recall")]
+
+
+all_sum$randomization <- factor(all_sum$randomization, levels = c("Real", "Simultaneous","Sequential"))
 
 
 ggplot(data=all_sum, aes(x=age, y=mean, col=randomization)) +
@@ -111,22 +178,14 @@ ggplot(data=all_sum, aes(x=age, y=mean, col=randomization)) +
         legend.title = element_blank())+
   facet_grid(.~measure) +
   theme(legend.position="bottom")
+
+
+
 ```
 
-## Measuring conceptual development 
+## Measuring Conceptual Development 
 
-We measure conceptual development by comparing $\mathcal{C}_t$ to $\mathcal{C}^*$ across time. We used a standard method in clustering comparison, which is based on counting word pairs on which the two clusterings agree or disagree \cite{rand1971,hubert1985}. A pair of words learned by month $t$ can fall under one of the four following cases: 
-
-\begin{enumerate}
-
-  \item True positives $tp(\mathcal{C}_t)$: pairs that are placed in the same cluster under $\mathcal{C}_t$ and in the same cluster under $\mathcal{C}^*$.
-  \item True negatives $tn(\mathcal{C}_t)$: pairs placed in different clusters under $\mathcal{C}_t$ and in different clusters under $\mathcal{C}^*$.
-  \item False positive $fp(\mathcal{C}_t)$: pairs placed in the same cluster under $\mathcal{C}_t$ and in different clusters under $\mathcal{C}^*$.
-  \item False negatives $fn(\mathcal{C}_t)$: pairs placed in different clusters under $\mathcal{C}_t$ and in the same cluster under $\mathcal{C}^*$.
-  
-\end{enumerate}
-
-We quantify clustering comparison using precision $P(\mathcal{C}_t)$ and recall $R(\mathcal{C}_t)$, defined as follows:
+We measure conceptual development by comparing $\mathcal{C}_t$ to $\mathcal{C}^*$ across time. We used a standard method in clustering comparison, which is based on word pairs on which the two clusterings agree or disagree \cite{rand1971,hubert1985}. We quantify clustering comparison using precision $P(\mathcal{C}_t)$ and recall $R(\mathcal{C}_t)$, defined as follows:
 
 $$
 P(\mathcal{C}_t) = \frac{|tp(\mathcal{C}_t)|}{|tp(\mathcal{C}_t)| + |fp(\mathcal{C}_t)|}
@@ -135,31 +194,16 @@ $$
 $$
 R(\mathcal{C}_t) = \frac{|tp(\mathcal{C}_t)|}{|tp(\mathcal{C}_t)| + |fn(\mathcal{C}_t)|}
 $$
-We made this comparison using different degrees of clustering granularity. More precisely, we fixed the same number of clusters for both $\mathcal{C}_t$ and $\mathcal{C}^*$, and we varied this number from two to four clusters. We did not use the trivial case of one cluster, nor did we did use more than four clusters, since this number was optimal for the largest network (i.e., the end-state network) based on the modularity maximization criterion \cite{newman2006}.
+Where $tp(\mathcal{C}_t)$ are the true positives, defined as the word pairs that are placed in the same cluster under $\mathcal{C}_t$ and in the same cluster under $\mathcal{C}^*$. $fp(\mathcal{C}_t)$ are the false positives,
+defined as the pairs placed in the same cluster under $\mathcal{C}_t$ and in different clusters under $\mathcal{C}^*$. Finally, $fn(\mathcal{C}_t)$ are the false negatives, defined as the pairs placed in different clusters under $\mathcal{C}_t$ and in the same cluster under $\mathcal{C}^*$.
 
-<!--We investigate whether there are systematic cross-lingusitc variations in the order of aquisition of words that make up this vocabulary, and crucially, whether such variation influences the induced conceptual organization at different points in time. In fact, differences in the order of acqusition of words do not necessarily give rise to different conceptual organization. Imagine that two languages vary in whether "cow" or "dog" is acquired first. This difference will not change the induced conceptual organization across time since both "dog" and "cow" are instances of the same high-level concept "animal". -->
+We made this comparison using different degrees of clustering granularity. More precisely, we fixed the same number of clusters for *both* $\mathcal{C}_t$ and $\mathcal{C}^*$, and we varied this number from two to four clusters. We did not use the trivial case of one cluster, nor did we use more than four clusters, since this number was optimal for the largest network (i.e., the end-state network) based on the modularity maximization criterion \cite{newman2006}.
 
+## Learning Mechanisms
 
-<!--## Features
-We used two sources of information which represent two ways words may be related to one another in the semantic network. The first source was the MacRae features (McRae et al., 2005). These features were collected by giving adult participants a set of nouns and prompting them to provide various kinds of properties (perceptual, functional, encyclopedic, and taxonomic). We followed Hills et al. 2010 in excluding the encyclopedic and taxonomic properties as their role may not be important at this stage of development. The other source was the semantic similarity derived based on co-occurrence in the corpus of CHILDES, using word2vec.
--->
+We examined how abstract concepts develop under an average word learning trajectory derived from real developmental data. To construct this trajectory, we used the normative age of acquisition, that is, the age at which a word is produced by at least 50% of children in each language \cite{goodman2008}. As mentioned above, we compared this development to the development induced by a first hypothetical trajectory where known words influence future word learning and a second hypothetical trajectory where learning proceeds regardless of what words are already known. 
 
-
-<!--
-## Small World properties
-We test whether the networks display the so-called "small-world" properties similar to other semantic and real-world networks (Steyvers & Tenenbaum, 2005; Watts & Strogatz, 1998). Small world properties are characterized with the average clustering coefficient $C$ and the average shortest path $L$. The former measures the extent to which the network is clustered, i.e., made of highly connectned sub-networks, whereas the latter measures the typical separation between tow nodes in the network. A network is small-word if it has a higher clustering coeffient comapred to a randomly connected network of the same size $C \gg C_{random}$, while still having a shorest path length as small as the one typically observed in random networks, that is $L \approx L_{random}$. 
--->
-
-<!--Both Precison and Recall converge to 1 (perfect score) as $\mathcal{C}_t$ becomes more and more similar to $\mathcal{C}^*$. If precision starts low before converging to 1 (as opposed to being a constant at 1), this pattern would indicate that some pairs that should be differentiated are initially lumped together, suggesting a process of "differentiation" over development. Similarly, if we observe an increase in Recall, this pattern would indicate that some pairs that should be associated are initially differentiate, suggesting a process of "coelescence" over development. -->
-
-## Learning mechanisms
-
-We examined how higher-order concepts develop under the children's real word learning trajectory. We compared this development to the development induced by an exploration- and an exploitation-like learning. To construct the real word learning trajectory, we used the normative age of acquisition, that is, the age at which a word is produced by at least 50% of children in each language \cite{goodman2008}.
-
-The exploration-based learning was instantiated as a uniform sampling from the end-state vocabulary. The exploitation-based learning had the additional constraint of sampling from one category at a time: the first word is selected randomly from one cluster, subsequent words are sampled from the same cluster. After all words from this cluster are used, a word from a different cluster is chosen, and the same process is repeated until all clusters are covered.\footnote{Note that the way we instantiated the exploitation-based learning is not fully unsupervised, but we were more interested in modeling extreme cases to which real learning can be compared.}
-<!--
-Since we are interested in the cross-linguistic study of development, we started by investigating the degree to which languages vary in their normative order of word learning. To this end, we calulated the pairwise Kendall rank correlation coefficient between languages, and we comapre it to the same measure obtained by comparing trajectories in different languages to random orderings.  The corresponding distributions, shown in Figure XX, do not overlap indicating that languages are more similar to each other than to random word orderings. The between-language distribution also shows there to be susbtantial cross-linguitc variability since the values are smaller than 1 (i.e., perfect correlation).
--->
+We instantiated the first trajectory through sampling from one conceptual category at a time: the first word is selected randomly from one cluster, subsequent words are sampled from the same cluster. After all words from this cluster are used, a word from a different cluster is chosen, and the same process is repeated until all clusters are covered. We call this sampling procedure the *sequential model*. We instantiated the second trajectory through a uniform sampling across time from the end-state vocabulary. We call this sampling procedure the *simultaneous model*.
 
 <!--
 ```{r fig.env = "figure", fig.pos = "H", fig.align = "center", set.cap.width=T, fig.width=3, fig.height=4, num.cols.cap=2, fig.cap = "bla bla"}
@@ -189,276 +233,23 @@ ggplot(cor_all,
 -->
 # Results
 
-
-```{r hi}
-#Models
-
-#m1_precision <- lmer(value ~ age *  randomization + (age *  randomization | language) + (1 | n_clusters),
-#           data = subset(all, measure =='pair_precision_to_last' & randomization != "random_aoa"),
-#          control=lmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
-
-##Test of convergence
-#(From: https://github.com/lme4/lme4/issues/120)
-#relgrad <- with(m1_precision@optinfo$derivs,solve(Hessian,gradient))
-#max(abs(relgrad))
-
-#saveRDS(m1_precision, "model_1.rds")
-#xl_precision <- readRDS("model_1.rds")
-
-#m2_precision <- lmer(value ~ age *  randomization + (age *  randomization | language) + (1 | n_clusters),
-#           data = subset(all, measure =='pair_precision_to_last' & randomization != "within_last_clustering"),
-#           control=lmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 1000000)))
-
-#saveRDS(m2_precision, "model_2.rds")
-#xp_precision <- readRDS("model_2.rds")
-
-##Test of convergence
-#relgrad <- with(xp_precision@optinfo$derivs,solve(Hessian,gradient))
-#max(abs(relgrad))
-
-#xl_recall <- lmer(value ~ age *  randomization + (age *  randomization | language) + (1 | n_clusters),
-#           data = subset(all, measure =='pair_recall_to_last' & randomization != "random_aoa"),
-#                     control=lmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 100000)))
-
-#saveRDS(xl_recall, "xl_recall.rds")
-#xl_recall <- readRDS("xl_recall.rds")
-
-#m2_recall <- lmer(value ~ age *  randomization + (age *  randomization | language) + (1 | n_clusters),
-#           data = subset(all, measure =='pair_recall_to_last' & randomization != "within_last_clustering"),
-#          control=lmerControl(optimizer="bobyqa", optCtrl = list(maxfun = 1000000)))
-
-#saveRDS(m2_recall, "model_recall_2.rds")
-#xp_recall <- readRDS("model_recall_2.rds")
-
-#relgrad <- with(xp_recall@optinfo$derivs,solve(Hessian,gradient))
-#max(abs(relgrad))
-
-#xl_prec_coef <- tibble::rownames_to_column(as.data.frame(coef(summary(xl_precision))), "effect") %>%
-#  mutate(sampling = "exploitation", score = "precision")
-#xp_prec_coef <- tibble::rownames_to_column(as.data.frame(coef(summary(xp_precision))), "effect") %>%
-#  mutate(sampling = "exploration", score = "precision")
-#xl_recall_coef <- tibble::rownames_to_column(as.data.frame(coef(summary(xl_recall))), "effect") %>%
-#  mutate(sampling = "exploitation", score = "recall")
-#xp_recall_coef <- tibble::rownames_to_column(as.data.frame(coef(summary(xp_recall))), "effect") %>%
-#  mutate(sampling = "exploration", score ="recall")
-
-#coef_all <- xl_prec_coef %>%
-#  bind_rows(xp_prec_coef) %>%
-#  bind_rows(xl_recall_coef) %>%
-#  bind_rows(xp_recall_coef) 
-
-#feather::write_feather(coef_all, "../saved_data/coef_all.feather")
-coef_all <- feather::read_feather("../saved_data/coef_all.feather")
-
-p_val <- function(val) {
-  if(val < 0.001) 
-    {'< 0.001'} 
-  else if(val < 0.01)
-    {'<0.01'} 
-  else if(val < 0.05)
-    {'<0.05'} 
-  else {paste('=', round(val,2))}
-}
-
-#Age 
-age_xl_prec_co <- round(coef_all$Estimate[which(coef_all$effect=="age" &
-                                                  coef_all$sampling=="exploitation" &
-                                                  coef_all$score =="precision")],2)
-
-age_xp_prec_co <- round(coef_all$Estimate[which(coef_all$effect=="age" &
-                                                  coef_all$sampling=="exploration" &
-                                                  coef_all$score =="precision")],2)
-
-age_xl_rec_co <- round(coef_all$Estimate[which(coef_all$effect=="age" &
-                                                  coef_all$sampling=="exploitation" &
-                                                  coef_all$score =="recall")],2)
-
-age_xp_rec_co <- round(coef_all$Estimate[which(coef_all$effect=="age" &
-                                                  coef_all$sampling=="exploration" &
-                                                  coef_all$score =="recall")],2)
-
-age_xl_prec_p <- coef_all$'Pr(>|t|)'[which(coef_all$effect=="age" &
-                                                  coef_all$sampling=="exploitation" &
-                                                  coef_all$score =="precision")]
-
-age_xp_prec_p <- coef_all$'Pr(>|t|)'[which(coef_all$effect=="age" &
-                                                  coef_all$sampling=="exploration" &
-                                                  coef_all$score =="precision")]
-
-age_xl_rec_p <- coef_all$'Pr(>|t|)'[which(coef_all$effect=="age"  &
-                                                  coef_all$sampling=="exploitation" &
-                                                  coef_all$score =="recall")]
-
-age_xp_rec_p <- coef_all$'Pr(>|t|)'[which(coef_all$effect=="age" &
-                                                  coef_all$sampling=="exploration" &
-                                                  coef_all$score =="recall")]
-
-#Real vs. exploration
-
-diff_xl_prec_co <- round(coef_all$Estimate[which(coef_all$effect=="randomizationwithin_last_clustering" &
-                                                  coef_all$sampling=="exploitation" &
-                                                  coef_all$score =="precision")],2)
-
-diff_xp_prec_co <- round(coef_all$Estimate[which(coef_all$effect=="randomizationrandom_aoa" &
-                                                  coef_all$sampling=="exploration" &
-                                                  coef_all$score =="precision")],2)
-
-diff_xl_rec_co <- round(coef_all$Estimate[which(coef_all$effect=="randomizationwithin_last_clustering" &
-                                                  coef_all$sampling=="exploitation" &
-                                                  coef_all$score =="recall")],2)
-
-diff_xp_rec_co <- round(coef_all$Estimate[which(coef_all$effect=="randomizationrandom_aoa" &
-                                                  coef_all$sampling=="exploration" &
-                                                  coef_all$score =="recall")],2)
-
-diff_xl_prec_p <- coef_all$'Pr(>|t|)'[which(coef_all$effect=="randomizationwithin_last_clustering" &
-                                                  coef_all$sampling=="exploitation" &
-                                                  coef_all$score =="precision")]
-
-diff_xp_prec_p <- coef_all$'Pr(>|t|)'[which(coef_all$effect=="randomizationrandom_aoa" &
-                                                  coef_all$sampling=="exploration" &
-                                                  coef_all$score =="precision")]
-
-diff_xl_rec_p <- coef_all$'Pr(>|t|)'[which(coef_all$effect=="randomizationwithin_last_clustering" &
-                                                  coef_all$sampling=="exploitation" &
-                                                  coef_all$score =="recall")]
-
-diff_xp_rec_p <- coef_all$'Pr(>|t|)'[which(coef_all$effect=="randomizationrandom_aoa" &
-                                                  coef_all$sampling=="exploration" &
-                                                  coef_all$score =="recall")]
-
-
-```
-
 Figure \ref{fig:results} shows the scores obtained through comparing $\mathcal{C}^*$ to $\mathcal{C}_t$ at different points in time $t$. For the real word learning trajectory, both precision and recall start relatively low, indicating that the induced conceptual organization is initially quite different from that of the end-state.  Both measures converge towards 1 (i.e., perfect score) as $\mathcal{C}_t$ becomes more and more similar to $\mathcal{C}^*$.
 
-We first compared the real conceptual development to the one induced by exploration-based learning. To this end, we fit a mixed-effect regression using age and learning (real vs. exploration-based) as fixed effects, and using language and number of fixed clusters as random effects accounting for the nested structure of the data. Real and exploration-based patterns of conceptual developmental were indistinguishable for both precision ($\beta =$ `r diff_xp_prec_co`, $p$ `r p_val(diff_xp_prec_p)`) and recall ($\beta =$ `r diff_xp_rec_co`, $p$ `r p_val(diff_xp_rec_p)`). 
-
-Similarly, we compared real conceptual development to exploitation-based learning. Using a similar regression, we found a difference in both precision ($\beta =$ `r diff_xl_prec_co`, $p$ `r p_val(diff_xl_prec_p)`) and recall ($\beta =$ `r diff_xl_rec_co`, $p$ `r p_val(diff_xl_rec_p)`). Exploitation-base learning had generally higher precision, indicating there to be less false positive pairs. This result is due to the fact that we sampled instances from a same category. However, the same type of learning had lower recall, indicating there to be less false negative pairs. This second result was due to the fact that sampling from a same category leads to clusterings that are finer in their conceptual granularity than the end-state. 
-
+The simultaneous model mimics closely the patterns of real conceptual development, explaining almost all the variance in mean precision  ($R^2 =$ `r r_sim_prec`) and recall ($R^2 =$ `r r_sim_rec`). In contrast, the sequential model had generally a higher precision, i.e., it induced fewer false positive pairs. This result is due to the fact that we sampled instances from the same category. However, the same model had generally lower recall scores, i.e., it induced more false negative pairs. This second result was due to the fact that sampling from the same category leads to clusterings that are finer in their conceptual granularity than the end-state. As a consequence of this discrepancy with respect to real development, the sequential model explained less variance than the simultaneous model did in both its mean precision ($R^2 =$ `r r_seq_prec`) and recall ($R^2 =$ `r r_seq_rec`).
 
 # Discussion
 
-This paper asks whether children can learn abstract concepts based on word co-occurrence in the language they hear around them. We found that, when using co-occurrence information in the developing lexical network, several high-level concepts such as "animal", "artefact", "food" and "clothes" emerge bottom-up as clusters of highly inter-connected nodes. In addition, these categories develop simultaneously thanks to the children's word learning trajectory which tends to favor the exploration of the global conceptual landscape rather than the exploitation and refinement of one specific category at time.
+Can children learn abstract concepts based on word co-occurrence in the language they hear around them? Previous work has shown that child-directed speech contains information about several abstract concepts \cite{huebner2018}. Here we investigated when and how this information becomes available to children as their lexical network grows. We found that even with a small lexicon, several high-level concepts such as "animal", "artifact", "food" and "clothes" emerge bottom-up as clusters of highly interconnected nodes in the network. Furthermore,  compared with a model that posited sequential learning, we found that these categories tended to emerge in concert with one another.
 
-The development of the higher-level conceptual structure seems to be unaffected by the order with which words are acquired (as long as this order approximates a uniform/exploration-like sampling), suggesting that the process of conceptual development can accommodate a wide range of word learning trajectories without qualitative change in the higher order organization. For example, whether acquisition start first with the words "cat" and "banana" or with the words "cow" and "potato" does not qualitatively affect the higher-level organization involving "animal" and "food". This property is important as it suggests, for instance, that development may be resilient to variability in the children's linguistic input \cite{slobin2014,hart1995}.
+The development of the higher-level conceptual structure seems to be unaffected by the order with which words are acquired (as long as this order approximates a uniform sampling from the end-state lexicon), suggesting that the process of conceptual development can accommodate a wide range of word learning trajectories without a qualitative change in the higher-level organization. For example, whether acquisition starts first with the words "cat" and "banana" or with the words "cow" and "potato" does not qualitatively affect the higher-level organization involving "animal" and "food". This property is important as it suggests, for instance, that development is resilient to variability in the children's linguistic input \cite{slobin2014,hart1995}.
 
-Developmental changes were captured by precision and recall. The increase in precision means that false positives decrease over time: some word pairs that are initially lumped together in a same category, are eventually differentiated. Similarly, the increase in recall means that false negatives decrease, that is, some word pairs that are initially distinct, become eventually subsumed by a same category. These patterns suggest a process of conceptual reorganization involving both "differentiation" and "coalescence" as was suggested in the developmental literature \cite{carey2009}.
+Developmental changes were captured by precision and recall. The increase in precision means that false positives decrease over time: some word pairs that are initially lumped together in a same category, are eventually differentiated. Similarly, the increase in recall means that false negatives decrease, that is, some word pairs that are initially distinct, become eventually subsumed by a same category. These patterns suggest a process of conceptual reorganization involving both "differentiation" and "coalescence" as has been suggested in the developmental literature \cite{carey2009}.
 
-That said, these developmental changes were not necessarily related to specific concepts (since the patterns were similar when we randomized the order of word learning). Instead, this finding suggests that differentiation and coalescence of word pairs in our data are related to the change in the vocabulary size across development: As more words are added to their lexical network, learners may approximate better the underlying conceptual organization of the mature lexicon, and would make less categorization errors. Indeed, research in network science indicates that properties of a real networks become more distorted as the size of a sampled sub-network decreases \cite{leskovec2006}.
+That said, these developmental changes were not necessarily related to specific concepts (since the patterns were similar in the simultaneous model where we randomized the order of word learning). Instead, this finding suggests that differentiation and coalescence of word pairs in our data are related to the change in the vocabulary size across development: As more words are added to their lexical network, learners may approximate better the underlying conceptual organization of the mature lexicon and would make fewer categorization errors. Indeed, research in network science indicates that properties of a real network become more distorted as the size of a sampled sub-network decreases \cite{leskovec2006}.
 
-One limitation of this study is that we used the normative age of acquisition, computed using different children at different age groups. This choice was due to the cross-sectional nature of available CDI data. Though such a measure has been widely used to study important aspects of the early lexical network \cite{hills2009,stella2017,storkel2009}, it only applies at the population level. In our case, though we found that average concept development is driven more by an exploration-based mechanism, some individual children may display an exploitation-like behavior. For example, prior knowledge about dinosaurs may enable the learning of new dinosaur-related words more easily \cite{chi1983}.
+One limitation of this study is that we used the normative age of acquisition, computed using different children at different age groups. This choice was due to the cross-sectional nature of available CDI data. Though such a measure has been widely used to study important aspects of the early lexical networks \cite{hills2009,stella2017,storkel2009}, it only applies at the population level. In our case, though we found that concepts develop simultaneously, individual children may display, at least locally, a sequential-like behavior. For example, prior knowledge about dinosaurs may enable the learning of new dinosaur-related words more easily \cite{chi1983}.
 
-In sum, this work provided a quantitative account of how abstract concepts can emerge from the interaction of the children's learning mechanism and the properties of their linguistic input. One important direction for future work is to investigate the extent to which the correlational findings obtained in this study (e.g., the identity of categories formed across development or the fact that categorization errors decrease with the size of the lexicon) can be corroborated by controlled behavioral experiments. 
+In sum, this work provided a quantitative account of how abstract concepts can emerge from the interaction of the children's emerging vocabulary and the properties of their linguistic input. One important direction for future work is to investigate the extent to which the correlational findings obtained in this study (e.g., the identity of categories formed across development or the fact that categorization errors decrease with the size of the lexicon) can be corroborated by controlled behavioral experiments. 
 
-<!--
+\vspace{1em} \fbox{\parbox[b][][c]{7.3cm}{\centering All data and code are available at https://github.com/afourtassi/conceptNet}} \vspace{1em}
 
-leading to gradual improvements in the approximation of the underlying conceptual organization. More precisely, words are placed in a same cluster if they are more similar to one another than to words in a different clusters. However, this *relative* similarity depends on the existing items and their number. In particular, the larger the vocabulary, the better learners can approximate the underlying relative simialrity distribution of the mature lexicon, and the less categorization errors they make.
-
-We compare the developmental patterns obtained with the normative trajectory to those obtained with the random trajectory. We demonstrated above that these trajectories are not correlated (Figure XX). Therefore, a priori it could have been the case that the normative trajectory has effects on higher-level conceptual organization above and beyond the effects induced by the random trajectory. Instead, Figure XX shows that the precsion and recall scores are strikingly similar in both trajectories across development. Thus, high level conceptual organizaton is quite robust to the order of word acquisition. To illustrate, acquisition may start with the word "dog" or with the word "cat", but this difference in the order of acquisition will not affect the induced super-ordinate category "animal".
-
-
-
-
-
-
-
-
-
-
-<!--
-
-
-
-
-
-
-
-
-We investigte whether the real conceptual development resembles more a pattern of exploitation- and exploration-based sampling.  
-
-The real word leanrining trajectory induces a conceptual organization which starts different from the end-state (lower precion and recall scores), and which becomes increasingly similar to the end-state 
-
-
-The results are shown for the real trajectory, as well
-
-
-
-
-
-First we compare the trajectory of word learning to the trajectories that result from the two sampling mechanisms. Second, we examine the extent to which these trajectories induce different patterns of conceptual development.
-
-Results are shown in Figure XX. We used mixed-effect linear regressions to examine how the trajectory of word learning compares to the two sampling mechanisms in the way they influence conceptual development.  
-
-
-Furthermore, the fact that normative and random trajectories have almost identical effects on the higher-level organization suggests that the observed developmental patterns (i.e., differentiation and coalescence of pairs of words) are not due to some specific order in word acquisition. Rather, they are due to the increase in the vocabulary size across development, leading to gradual improvements in the approximation of the underlying conceptual organization. More precisely, words are placed in a same cluster if they are more similar to one another than to words in a different clusters. However, this *relative* similarity depends on the existing items and their number. In particular, the larger the vocabulary, the better learners can approximate the underlying relative simialrity distribution of the mature lexicon, and the less categorization errors they make.
-
-Next, we compare the normative and category-based learning (why?). Precsion is higher in the category-based trajectory, especially for earlier months. In contrast, the recall is lower. This pattern is due to the fact that learning is assumed to proceed based on conceptual similarity, e.g., if learning starts with an animal, then the next word will also be an animal. This learning produces less false postives because it samples instances from the same category (hence the high precison). Nevertheless, it also produces more false negative because it creates categories that are finer in their conceptual granualrity than the end-state (hence the low recall). 
-
-
-# Conclusion
-This results suggests that real (normative) learning influences early conceptual development in a way that mimics random sampling and contrasts with category-based sampling. This suggests that early word learning favors exploration of the entire conceptual domain, rath
-
-<!--
-thus favoring exploration and which differ from category-based sampling. 
-
-
-conceptual development show different properties when word learning deviate 
-
-
-learning proceeds according to a similarity principle which sample words from the same category.  
-
-
-
-
-In contrast, the recall is lower. Category-based trajectory does not show a clear differentia
-
-
-
-
-Finally, mixed effects model and cross-linguistic discussion,....
-
-
-more frequent it is to approximate the end-state organization and to misplace words in . This phenomenon is similar to 
-
-
-
-The similarity of the scores in both trajectories also indicate that the increase in precision are recall are more likely due to small sample size, similar to the fact that a small size will not lead to prcise distribution,....
-
-If we picture a word learning trajectory as way one could samples words from the end-state vocabulary, then random ordering corresponds to sparse sampling, 
-
-
-
-to the ones obtained with the randomly ranked trajectory. As shown in Figure XX, precision and recall scores in both trajectories are strinkingly similar across development. Thus, despite the fact that languages share some pattern of acquisition above and beyond chance (see Figure, XX), these shared patterns do not influence the higher level organizaton of these words. For example, 
-
-
-
-
-
-Investigation of the random trajectory allows us to understand whether the developmental patterns are specific to
-
-
-
-
-
-
-
-For real and random: results show that both precision and recall increase across development, suggesting that the conceptual organization undergoes both differentiation for some word pairs (example), and coelescecne for other pairs (examples). 
-
-For within-cluster: precision is high, but recall is low: explain why 
-
-How to explain this change? 
-
->Assuming a random/real ranking of words:
--Some words may be lamped together initially (even if we force a relatively high number of clusters) because of the smaller vocabulary size? Can we have an example of this? Are the other clsuters empty?
--Some words may be differentiated initially because of the forcing?
--Is there a roleof noise? maybe clustering is just more random for smaller size vocabulary?
-
->Assuming a with-cluster ranking of words:
--Some words may be lamped together initially (even if we force a relatively high number of clusters): this does not happen, at least while we are still working with the first cluster...that's why precision is generally high
--Some words may be differentiated initially because they 
-
-
-If precision is lower early on, it means that initial concepts are not differentiated enough, that is, pairs that should belong to different concpets are intially lamped together (false positives), despite the fact that we forced the same number of clsuters in both $\mathcal{C}_t$ and $\mathcal{C}^*$ (Why is this the case? This looks like an artefact of the clustering algorithm with smaller size data? Should discuss this with Isaac. Also, what is an exmaple of a clustering $\mathcal{C}_t$ for a smaller size: are some clusters totally empty?)
-
--->

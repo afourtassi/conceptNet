@@ -58,6 +58,8 @@
 \def\tightlist{}
 
 
+\eaclfinalcopy
+\def\eaclpaperid{}
 % If you have:
 %   final_submission: yes
 %   eaclpaperid: <your ID number>
@@ -75,10 +77,11 @@
 
 \newcommand\BibTeX{B{\sc ib}\TeX}
 
-\title{How to Make a Camera-Ready Proceedings Contribution}
+\title{The Development of Abstract Concepts in Children's Early Lexical
+Networks}
 
 
-\author{{\large \bf Author 1} \\ \texttt{author1@university.edu} \\ Department of Psychology \\ Some University \And {\large \bf Author 2} \\ \texttt{author1@university.edu} \\ Department of Psychology \\ Some University}
+\author{{\large \bf Abdellah Fourtassi *}  \qquad {\large \bf Isaac L. Scheinfeld *} \qquad {\large \bf Michael C. Frank} \\ \texttt{\{afourtas, ischeinfeld, mcfrank\}@stanford.edu} \\ Department of Psychology \\ Stanford University}
 
 \date{}
 
@@ -87,430 +90,281 @@
 \maketitle
 
 \begin{abstract}
-This document contains the instructions for preparing a camera-ready
-manuscript for the proceedings of EACL-2017. The document itself
-conforms to its own specifications, and is therefore an example of what
-your manuscript should look like. These instructions should be used for
-both papers submitted for review and for final versions of accepted
-papers. Authors are asked to conform to all the directions reported in
-this document.
+How do children learn abstract concepts such as animal vs.~artifact?
+Previous research has suggested that such concepts can partly be derived
+using cues from the language children hear around them. Following this
+suggestion, we propose a model where we represent the children's
+developing lexicon as an evolving network. The nodes of this network are
+based on vocabulary knowledge as reported by parents, and the edges
+between pairs of nodes are based on the probability of their
+co-occurrence in a corpus of child-directed speech. We found that
+several abstract categories can be identified as the dense regions in
+such networks. In addition, our simulations suggest that these
+categories develop simultaneously, rather than sequentially, thanks to
+the children's word learning trajectory which favors the exploration of
+the global conceptual space.
 \end{abstract}
 
-\section{Methods}\label{methods}
+\section{Introduction:}\label{introduction}
 
-\subsection{Nouns}\label{nouns}
+One of the central challenges in cognitive development is to understand
+how concepts develop \cite{carey2009,keil1992,gopnik1997}. Of particular
+interest is the case of abstract concepts which have non-obvious shared
+properties such as ``animal'' and ``artifact''. For example, a cat and a
+bird are perceptually quite different but they share some fundamental
+properties (e.g., breathing, feeding, and reproducing) which make them
+animals (as opposed to artifacts). In such cases, learning requires in
+part cultural/linguistic cues which provide information beyond what can
+be obtained through the senses \cite{gelman2009,harris2012,csibra2009}.
 
-We used data from Wordbank (Frank et al., 2017), an open repository
-aggregating cross-linguistic language developmental data of the
-MacArthur-Bates Communicative Development Inventory (CDI), a parent
-report vocabulary checklist, Toddler version. Parent report is a
-reliable and valid measure of children's vocabulary (Fenson et al.,
-1994). We used a set of nouns representing hand-checked translation
-equivalents across 10 languages (available in Wordbank database). We
-``assume'' (i should ask what were the criteria for the unilemma
-selection) that this set of translation equivalents is representative of
-a core shared vocabulary across all children (in different cultures) by
-around 30 months,
+One way children's conceptual learning can benefit from the language
+they hear around them is through word co-occurrence. For example, one
+can learn an abstract concept (e.g., animal) simply by observing how its
+instances (e.g., ``cat'' and ``bird'') go together in speech. Indeed,
+previous work has shown that the caregiver's input contains rich
+co-occurrence information about various abstract concepts
+\cite{huebner2018}. This work, however, has explored the conceptual
+space from an adult perspective (using the words uttered by the
+caregivers). Here we explore how abstract concepts may develop from the
+children's perspective, investigating how their word learning trajectory
+influences the higher-level organization of their developing lexicon.
 
-The conceptual organization derived from this shared vocabulary is
-obviousely identical across languages, but we investigate whether there
-are systematic cross-lingusitc variations in the order of aquisition of
-words that make up this vocabulary, and crucially, whether such
-variation influences the induced conceptual organization at different
-points in time. In fact, differences in the order of acqusition of words
-do not necessarily give rise to different conceptual organization.
-Imagine that two languages vary in whether ``cow'' or ``dog'' is
-acquired first. This difference will not change the induced conceptual
-organization across time since both ``dog'' and ``cow'' are instances of
-the same high-level concept ``animal''.
+We study the real conceptual development (i.e.~as induced by the real
+trajectory of word learning) in comparison to two hypothetical
+developmental scenarios induced by two possible mechanisms of word
+learning. On the first mechanism, past lexical knowledge facilitates the
+future learning of related words, e.g., the word ``cat'' is more likely
+to be followed by another animal name than it is to be followed by a
+food name \cite{steyvers2005,borovsky2016}. On the second mechanism,
+past lexical knowledge does not influence future learning, e.g.,
+learning the word ``cat'' does not necessarily increase the odds that
+the next word will be another animal name \cite{hills2009,sizemore2018}.
 
-\begin{CodeChunk}
-\captionsetup{width=0.8\textwidth}\begin{figure}[h]
-
-{\centering \includegraphics{figs/unnamed-chunk-1-1} 
-
-}
-
-\caption[bla bla]{bla bla}\label{fig:unnamed-chunk-1}
-\end{figure}
-\end{CodeChunk}
-
-\subsection{Features}\label{features}
-
-We used two sources of information which represent two ways words may be
-related to one another in the semantic network. The first source was the
-MacRae features (McRae et al., 2005). These features were collected by
-giving adult participants a set of nouns and prompting them to provide
-various kinds of properties (perceptual, functional, encyclopedic, and
-taxonomic). We followed Hills et al. 2010 in excluding the encyclopedic
-and taxonomic properties as their role may not be important at this
-stage of development. The other source was the semantic similarity
-derived based on co-occurrence in the corpus of CHILDES, using word2vec.
-
-\subsection{Network}\label{network}
-
-We constructed networks using CDI words as nodes. Pairs of words were
-linked by an edge weighted by the number of shared MacRae feature or
-with the continuous distance obtained via Word2vec. To model change in
-the conceptual organization from month to month, we constructed a
-different network at each month, based on the words that have been
-acquired by that month. We defined the age of acquisiton of a given word
-by the month at which this noun was produced by at least 50\% of
-children, in each language (Goodman et al., 2008).
-
-\subsection{Small World properties}\label{small-world-properties}
-
-We test whether the networks display the so-called ``small-world''
-properties similar to other semantic and real-world networks (Steyvers
-\& Tenenbaum, 2005; Watts \& Strogatz, 1998). Small world properties are
-characterized with the average clustering coefficient \(C\) and the
-average shortest path \(L\). The former measures the extent to which the
-network is clustered, i.e., made of highly connectned sub-networks,
-whereas the latter measures the typical separation between tow nodes in
-the network. A network is small-word if it has a higher clustering
-coeffient comapred to a randomly connected network of the same size
-\(C \gg C_{random}\), while still having a shorest path length as small
-as the one typically observed in random networks, that is
-\(L \approx L_{random}\).
+The paper is organized as follows. First, we describe the research
+strategy. In brief, we represented the developing lexicon as an evolving
+network and we used word co-occurrence in parent speech as a measure of
+words' relatedness. We operationalized abstract concepts as the highly
+interconnected regions of the network. Second, we explore how the
+pattern of children's word learning influences higher-level conceptual
+development, and whether this development corresponds to simultaneous or
+sequential conceptual growth.
 
 \begin{CodeChunk}
 \captionsetup{width=0.8\textwidth}\begin{figure*}[h]
 
-{\centering \includegraphics{figs/unnamed-chunk-2-1} 
+{\centering \includegraphics{figs/network-1} 
 
 }
 
-\caption[bla bla]{bla bla}\label{fig:unnamed-chunk-2}
+\caption[Network obtained using a sample of nouns in CDI data (nodes), and co-occurrence-based similarity from a corpus of child-directed speech (edges)]{Network obtained using a sample of nouns in CDI data (nodes), and co-occurrence-based similarity from a corpus of child-directed speech (edges). Colors indicate highly interconnected clusters identified using unsupervised network community detection. The clusters correspond, overall, to four higher-level concepts: animal, food, clothes, and artifacts.}\label{fig:network}
 \end{figure*}
 \end{CodeChunk}
 
-\subsection{Clustering analysis}\label{clustering-analysis}
+\section{Data and Methods}\label{data-and-methods}
 
-We identified network clusters using WalkTrap (Pons \& Latapy, 2006), a
-community detection algorithm based on the fact that a random walker
-tends to be trapped in dense parts of a network corresponding to highly
-interconnected sub-groups of nodes.
+\subsection{Constructing Lexical
+Networks}\label{constructing-lexical-networks}
 
-\subsection{Evaluation of clusterings aross
-development}\label{evaluation-of-clusterings-aross-development}
+The networks' nodes were nouns from Wordbank \cite{frank2017}, an open
+repository aggregating cross-linguistic developmental data of the
+MacArthur-Bates Communicative Development Inventory (CDI), Toddler
+version \cite{fenson94}. Pairs of nouns were linked by weighted edges
+representing their semantic similarity derived based on co-occurrence in
+the corpus of child-directed speech CHILDES \cite{macwhinney2014}, using
+the Word2Vec algorithm \cite{mikolov2013}.
 
-We note \(\mathcal{C}_t\) the clustering at month \(t\), based on the
-subset of the vocabulary acquired by that month in each language. The
-evaluation consists in comparing \(\mathcal{C}_t\) to the final
-clustering \(\mathcal{C}^*\) obtained using the full vocabulary by the
-last month of acquisition (i.e., \(\mathcal{C}^*\)=\(\mathcal{C}_t\) for
-\(t\)=30 months). Such comparison allows us to study how words acquired
-at different points in time may induce changes in the conceptual
-organization. In addition, we investigate consistency and variability in
-this change across languages.
+First, we constructed the end-state network based on all nouns learned
+by the last age of acquisition. We used a subset of CDI nouns for which
+cross-linguistic translations are present, allowing us to explore
+cross-linguistic variability. We used data from the following ten
+languages: Croatian, Danish, English, French, Italian, Norwegian,
+Russian, Spanish, Swedish, and Turkish. The size of this subset varied
+from 314 in Russian (representing 100\% of total nouns present in the
+CDI data of this language) to 176 in Turkish (representing 59.26\% of
+total nouns). Second, in order to study development towards the
+end-state, we constructed a different network at each month, based on
+the nouns that have been learned by that month.
 
-We compare \(\mathcal{C}_t\) to \(\mathcal{C}^*\) using a standard
-method in clustering comparison, which is based on counting word pairs
-on which the two clusterings agree or disagree (Rand, 1971; Hubert and
-Arabie, 1985). A pair of words learned by month \(t\) can fall under one
-of the four follwoing cases: 1) pairs that are placed in the same
-cluster under \(\mathcal{C}_t\) and in the same cluster under
-\(\mathcal{C}^*\) (True positives, noted as \(tp(\mathcal{C}_t)\)), 2)
-pairs placed in different clsuters under \(\mathcal{C}_t\) and in
-different clusters under \(\mathcal{C}^*\) (True negatives,
-\(tn(\mathcal{C}_t)\)), 3) pairs placed in the same cluster under
-\(\mathcal{C}_t\) and in different clusters under \(\mathcal{C}^*\)
-(False positive, \(fp(\mathcal{C}_t)\)), and 4) pairs placed in
-different clusters under \(\mathcal{C}_t\) and in the same cluster under
-\(\mathcal{C}^*\) (False negatives, \(fn(\mathcal{C}_t)\)).
+\subsection{Identifying Abstract Concepts in a
+Network}\label{identifying-abstract-concepts-in-a-network}
 
-The clustering precison \(P(\mathcal{C}_t)\) and recall
-\(R(\mathcal{C}_t)\) are defiend as follows:
+We assume that abstract concepts correspond to clusters of highly
+interconnected nodes in the networks. We identified such clusters using
+WalkTrap \cite{pons2006}, an unsupervised community detection algorithm
+based on the fact that a random walker tends to be trapped in dense
+parts of a network. Figure \ref{fig:network} shows the outcome of
+cluster identification in the end-state network in English. The
+algorithm obtained four major clusters corresponding to the categories
+of clothes, food, animal and artifacts. We refer to this end-state
+clustering as \(\mathcal{C}^*\). To examine developmental change in the
+conceptual organization, we ran the cluster identification algorithm at
+each month of acquisition \(t\), and we compared the resulting
+clustering, noted \(\mathcal{C}_t\), to that of the end-state
+\(\mathcal{C}^*\). The method of this comparison is detailed below.
+
+\begin{CodeChunk}
+\captionsetup{width=0.8\textwidth}\begin{figure*}[h]
+
+{\centering \includegraphics{figs/results-1} 
+
+}
+
+\caption[Mean precision and recall scores obtained through comparing the end-state clustering to clusterings at different months of acquisition, averaged across languages and numbers of clusters]{Mean precision and recall scores obtained through comparing the end-state clustering to clusterings at different months of acquisition, averaged across languages and numbers of clusters. Colors indicates real and hypothetical word sampling mechanisms. Errors bars represent 95\% confidence intervals.}\label{fig:results}
+\end{figure*}
+\end{CodeChunk}
+
+\subsection{Measuring Conceptual
+Development}\label{measuring-conceptual-development}
+
+We measure conceptual development by comparing \(\mathcal{C}_t\) to
+\(\mathcal{C}^*\) across time. We used a standard method in clustering
+comparison, which is based on word pairs on which the two clusterings
+agree or disagree \cite{rand1971,hubert1985}. We quantify clustering
+comparison using precision \(P(\mathcal{C}_t)\) and recall
+\(R(\mathcal{C}_t)\), defined as follows:
 
 \[
 P(\mathcal{C}_t) = \frac{|tp(\mathcal{C}_t)|}{|tp(\mathcal{C}_t)| + |fp(\mathcal{C}_t)|}
-\] \[
+\]
+
+\[
 R(\mathcal{C}_t) = \frac{|tp(\mathcal{C}_t)|}{|tp(\mathcal{C}_t)| + |fn(\mathcal{C}_t)|}
-\] Both Precison and Recall converge to 1 (perfect score) as
-\(\mathcal{C}_t\) becomes more and more similar to \(\mathcal{C}^*\). If
-precision starts low before converging to 1 (as opposed to being a
-constant at 1), this pattern would indicate that some pairs that should
-be differentiated are initially lumped together, suggesting a process of
-``differentiation'' over development. Similarly, if we observe an
-increase in Recall, this pattern would indicate that some pairs that
-should be associated are initially differentiate, suggesting a process
-of ``coelescence'' over development.
+\] Where \(tp(\mathcal{C}_t)\) are the true positives, defined as the
+word pairs that are placed in the same cluster under \(\mathcal{C}_t\)
+and in the same cluster under \(\mathcal{C}^*\). \(fp(\mathcal{C}_t)\)
+are the false positives, defined as the pairs placed in the same cluster
+under \(\mathcal{C}_t\) and in different clusters under
+\(\mathcal{C}^*\). Finally, \(fn(\mathcal{C}_t)\) are the false
+negatives, defined as the pairs placed in different clusters under
+\(\mathcal{C}_t\) and in the same cluster under \(\mathcal{C}^*\).
 
-\subsection{Word ordering}\label{word-ordering}
+We made this comparison using different degrees of clustering
+granularity. More precisely, we fixed the same number of clusters for
+\emph{both} \(\mathcal{C}_t\) and \(\mathcal{C}^*\), and we varied this
+number from two to four clusters. We did not use the trivial case of one
+cluster, nor did we use more than four clusters, since this number was
+optimal for the largest network (i.e., the end-state network) based on
+the modularity maximization criterion \cite{newman2006}.
 
-The question we are addressing is whether the order of acqusition of
-words affect the
+\subsection{Learning Mechanisms}\label{learning-mechanisms}
+
+We examined how abstract concepts develop under an average word learning
+trajectory derived from real developmental data. To construct this
+trajectory, we used the normative age of acquisition, that is, the age
+at which a word is produced by at least 50\% of children in each
+language \cite{goodman2008}. As mentioned above, we compared this
+development to the development induced by a first hypothetical
+trajectory where known words influence future word learning and a second
+hypothetical trajectory where learning proceeds regardless of what words
+are already known.
+
+We instantiated the first trajectory through sampling from one
+conceptual category at a time: the first word is selected randomly from
+one cluster, subsequent words are sampled from the same cluster. After
+all words from this cluster are used, a word from a different cluster is
+chosen, and the same process is repeated until all clusters are covered.
+We call this sampling procedure the \emph{sequential model}. We
+instantiated the second trajectory through a uniform sampling across
+time from the end-state vocabulary. We call this sampling procedure the
+\emph{simultaneous model}.
 
 \section{Results}\label{results}
 
-For real and random: results show that both precision and recall
-increase across development, suggesting that the conceptual organization
-undergoes both differentiation for some word pairs (example), and
-coelescecne for other pairs (examples).
+Figure \ref{fig:results} shows the scores obtained through comparing
+\(\mathcal{C}^*\) to \(\mathcal{C}_t\) at different points in time
+\(t\). For the real word learning trajectory, both precision and recall
+start relatively low, indicating that the induced conceptual
+organization is initially quite different from that of the end-state.
+Both measures converge towards 1 (i.e., perfect score) as
+\(\mathcal{C}_t\) becomes more and more similar to \(\mathcal{C}^*\).
 
-For within-cluster: precision is high, but recall is low: explain why
+The simultaneous model mimics closely the patterns of real conceptual
+development, explaining almost all the variance in mean precision
+(\(R^2 =\) 0.94) and recall (\(R^2 =\) 0.99). In contrast, the
+sequential model had generally a higher precision, i.e., it induced
+fewer false positive pairs. This result is due to the fact that we
+sampled instances from the same category. However, the same model had
+generally lower recall scores, i.e., it induced more false negative
+pairs. This second result was due to the fact that sampling from the
+same category leads to clusterings that are finer in their conceptual
+granularity than the end-state. As a consequence of this discrepancy
+with respect to real development, the sequential model explained less
+variance than the simultaneous model did in both its mean precision
+(\(R^2 =\) 0.44) and recall (\(R^2 =\) 0.96).
 
-How to explain this change?
+\section{Discussion}\label{discussion}
 
-\begin{quote}
-Assuming a random/real ranking of words: -Some words may be lamped
-together initially (even if we force a relatively high number of
-clusters) because of the smaller vocabulary size? Can we have an example
-of this? Are the other clsuters empty? -Some words may be differentiated
-initially because of the forcing? -Is there a roleof noise? maybe
-clustering is just more random for smaller size vocabulary?
-\end{quote}
+Can children learn abstract concepts based on word co-occurrence in the
+language they hear around them? Previous work has shown that
+child-directed speech contains information about several abstract
+concepts \cite{huebner2018}. Here we investigated when and how this
+information becomes available to children as their lexical network
+grows. We found that even with a small lexicon, several high-level
+concepts such as ``animal'', ``artifact'', ``food'' and ``clothes''
+emerge bottom-up as clusters of highly interconnected nodes in the
+network. Furthermore, compared with a model that posited sequential
+learning, we found that these categories tended to emerge in concert
+with one another.
 
-\begin{quote}
-Assuming a with-cluster ranking of words: -Some words may be lamped
-together initially (even if we force a relatively high number of
-clusters): this does not happen, at least while we are still working
-with the first cluster\ldots{}that's why precision is generally high
--Some words may be differentiated initially because they
-\end{quote}
+The development of the higher-level conceptual structure seems to be
+unaffected by the order with which words are acquired (as long as this
+order approximates a uniform sampling from the end-state lexicon),
+suggesting that the process of conceptual development can accommodate a
+wide range of word learning trajectories without a qualitative change in
+the higher-level organization. For example, whether acquisition starts
+first with the words ``cat'' and ``banana'' or with the words ``cow''
+and ``potato'' does not qualitatively affect the higher-level
+organization involving ``animal'' and ``food''. This property is
+important as it suggests, for instance, that development is resilient to
+variability in the children's linguistic input
+\cite{slobin2014,hart1995}.
 
-\subsection{Order of word learning}\label{order-of-word-learning}
+Developmental changes were captured by precision and recall. The
+increase in precision means that false positives decrease over time:
+some word pairs that are initially lumped together in a same category,
+are eventually differentiated. Similarly, the increase in recall means
+that false negatives decrease, that is, some word pairs that are
+initially distinct, become eventually subsumed by a same category. These
+patterns suggest a process of conceptual reorganization involving both
+``differentiation'' and ``coalescence'' as has been suggested in the
+developmental literature \cite{carey2009}.
 
-\section{Sudy of the conceptual
-development}\label{sudy-of-the-conceptual-development}
+That said, these developmental changes were not necessarily related to
+specific concepts (since the patterns were similar in the simultaneous
+model where we randomized the order of word learning). Instead, this
+finding suggests that differentiation and coalescence of word pairs in
+our data are related to the change in the vocabulary size across
+development: As more words are added to their lexical network, learners
+may approximate better the underlying conceptual organization of the
+mature lexicon and would make fewer categorization errors. Indeed,
+research in network science indicates that properties of a real network
+become more distorted as the size of a sampled sub-network decreases
+\cite{leskovec2006}.
 
-Models
+One limitation of this study is that we used the normative age of
+acquisition, computed using different children at different age groups.
+This choice was due to the cross-sectional nature of available CDI data.
+Though such a measure has been widely used to study important aspects of
+the early lexical networks \cite{hills2009,stella2017,storkel2009}, it
+only applies at the population level. In our case, though we found that
+concepts develop simultaneously, individual children may display, at
+least locally, a sequential-like behavior. For example, prior knowledge
+about dinosaurs may enable the learning of new dinosaur-related words
+more easily \cite{chi1983}.
 
-\section{Important citation stuff!
-READ!}\label{important-citation-stuff-read}
+In sum, this work provided a quantitative account of how abstract
+concepts can emerge from the interaction of the children's emerging
+vocabulary and the properties of their linguistic input. One important
+direction for future work is to investigate the extent to which the
+correlational findings obtained in this study (e.g., the identity of
+categories formed across development or the fact that categorization
+errors decrease with the size of the lexicon) can be corroborated by
+controlled behavioral experiments.
 
-\subsection{Why we can't have nice
-things}\label{why-we-cant-have-nice-things}
+\vspace{1em}
 
-So because the ACL committee wants their \texttt{.tex} files all nice
-and consistent, the old version of this package isn't good for what they
-want. The Markdown-to-Latex conversion would automatically add in the
-references and citations, but would literally hardcode them into the
-\texttt{.tex} file. We can't have that, now can we? The only ways you
-were allowed to cite in your \texttt{.tex} file was with
-\texttt{\textbackslash{}cite\{Gusfield97\}},
-\texttt{\textbackslash{}shortcite\{Gusfield97\}}, or
-\texttt{\textbackslash{}newcite\{Gusfield97\}}, which corresponded to
-``(Gusfield, 1997)'', ``(1997)'', or ``Gusfield (1997)'', respectively.
-
-This means you couldn't do anything like ``(e.g., Gusfield, 2017)'', and
-their \texttt{.bst} file was incompatible with \texttt{natbib}.
-Obviously. However, I have come to the rescue. In the
-\texttt{eacl2017.sty} file in this package, I have added my own bit of
-magic: the \texttt{\textbackslash{}barecite\{\}} command, which
-corresponds to ``Burchill, 2017''. Notice this version doesn't have
-parentheses, so you can get stuff like ``(e.g., Burchill, 2017)'' with
-\texttt{(e.g.,\ \textbackslash{}barecite\{Gusfield97\})}. Just be
-careful about making sure you don't forget parentheses. Also not that
-when you submit the \texttt{.zip} folder, you should make sure to
-include the edited \texttt{eacl2017.sty} file.
-
-\subsection{Examples}\label{examples}
-
-\begin{itemize}
-\tightlist
-\item
-  \texttt{\textbackslash{}cite\{Gusfield97\}} becomes \cite{Gusfield97}
-\item
-  \texttt{\textbackslash{}shortcite\{Gusfield97\}} becomes
-  \shortcite{Gusfield97}
-\item
-  \texttt{\textbackslash{}newcite\{Gusfield97\}} becomes
-  \newcite{Gusfield97}
-\item
-  \texttt{\textbackslash{}barecite\{Gusfield97\}} becomes
-  \barecite{Gusfield97}
-\item
-  \texttt{\textbackslash{}cite\{Gusfield97,Aho72\}} becomes
-  \cite{Gusfield97,Aho72}
-\item
-  \texttt{\textbackslash{}barecite\{Gusfield97,Aho72\}} becomes
-  \barecite{Gusfield97,Aho72}
-\end{itemize}
-
-\textbf{Wait, \emph{are those citations appearing as question marks?}
-Don't worry, read on!}
-
-\subsection{The two-step process of knitting this
-file}\label{the-two-step-process-of-knitting-this-file}
-
-Because the ACL's you-need-to-use-our-citing-function formatting doesn't
-work well with R Markdown--which really likes to compile its own
-citations--knitting this is now a two-step process. After you get it how
-you want it in RMarkdown, knit as usual. You'll see that all citations
-are question marks, and that the bibliography is missing. This is
-natural, don't panic.
-
-For the current purposes, let's assume this file we're in right now is
-called \texttt{acl\_draft.Rmd}. Navigate into the directory containing
-\texttt{acl\_draft.Rmd} via a terminal. Then run the following command
-(swapping out your actual file name for ``acl\_draft'')
-
-\texttt{pdflatex\ acl\_draft.tex;\ pdflatex\ acl\_draft.tex;\ bibtex\ acl\_draft.aux;\ pdflatex\ acl\_draft.tex;\ pdflatex\ acl\_draft.tex}
-
-Now, check the \texttt{.pdf} file. If all went well, it should now have
-all the citations in it as well as the reference section. Good luck!
-
-\section{General Formatting
-Instructions}\label{general-formatting-instructions}
-
-All the default content below is lifted directly from Kyle MacDonald's
-Cogsci 2016 project (\url{https://github.com/kemacdonald/cogsci2016}),
-which this entire package is based on. I haven't changed it, so it's up
-to you to ignore as you please.
-
-For general information about authoring in markdown, see
-**\url{http://rmarkdown.rstudio.com/authoring_basics.html.**}
-
-For standard spoken papers and standard posters, the entire contribution
-(including figures, references, everything) can be no longer than six
-pages. For abstract posters, the entire contribution can be no longer
-than one page. For symposia, the entire contribution can be no longer
-than two pages.
-
-The text of the paper should be formatted in two columns with an overall
-width of 7 inches (17.8 cm) and length of 9.25 inches (23.5 cm), with
-0.25 inches between the columns. Leave two line spaces between the last
-author listed and the text of the paper. The left margin should be 0.75
-inches and the top margin should be 1 inch.
-\textbf{The right and bottom margins will depend on whether you use
-U.S. letter or A4 paper, so you must be sure to measure the width of
-the printed text.} Use 10 point Times Roman with 12 point vertical
-spacing, unless otherwise specified.
-
-The title should be in 14 point, bold, and centered. The title should be
-formatted with initial caps (the first letter of content words
-capitalized and the rest lower case). Each author's name should appear
-on a separate line, 11 point bold, and centered, with the author's email
-address in parentheses. Under each author's name list the author's
-affiliation and postal address in ordinary 10 point type.
-
-Indent the first line of each paragraph by 1/8\textasciitilde{}inch
-(except for the first paragraph of a new section). Do not add extra
-vertical space between paragraphs.
-
-\section{First-Level Headings}\label{first-level-headings}
-
-First level headings should be in 12 point , initial caps, bold and
-centered. Leave one line space above the heading and
-1/4\textasciitilde{}line space below the heading.
-
-\subsection{Second-Level Headings}\label{second-level-headings}
-
-Second level headings should be 11 point , initial caps, bold, and flush
-left. Leave one line space above the heading and 1/4\textasciitilde{}
-line space below the heading.
-
-\subsubsection{Third-Level Headings}\label{third-level-headings}
-
-Third-level headings should be 10 point , initial caps, bold, and flush
-left. Leave one line space above the heading, but no space after the
-heading.
-
-\section{Formalities, Footnotes, and
-Floats}\label{formalities-footnotes-and-floats}
-
-\subsection{Footnotes}\label{footnotes}
-
-Indicate footnotes with a number\footnote{Sample of the first
-footnote.} in the text. Place the footnotes in 9 point type at the
-bottom of the page on which they appear. Precede the footnote with a
-horizontal rule.\footnote{Sample of the second footnote.}
-
-\subsection{Figures}\label{figures}
-
-All artwork must be very dark for purposes of reproduction and should
-not be hand drawn. Number figures sequentially, placing the figure
-number and caption, in 10 point, after the figure with one line space
-above the caption and one line space below it. If necessary, leave extra
-white space at the bottom of the page to avoid splitting the figure and
-figure caption. You may float figures to the top or bottom of a column,
-or set wide figures across both columns.
-
-\subsection{Two-column images}\label{two-column-images}
-
-You can read local images using png package for example and plot it like
-a regular plot using grid.raster from the grid package. With this method
-you have full control of the size of your image. \textbf{Note: Image
-must be in .png file format for the readPNG function to work.}
-
-You might want to display a wide figure across both columns. To do this,
-you can change the \texttt{fig.env} chunk option to \texttt{figure*}. To
-align the image in the center of the page, set \texttt{fig.align} option
-to \texttt{center}.
-
-\begin{CodeChunk}
-\begin{figure*}[h]
-
-{\centering \includegraphics{figs/2-col-image-1} 
-
-}
-
-\caption[This image spans both columns]{This image spans both columns.}\label{fig:2-col-image}
-\end{figure*}
-\end{CodeChunk}
-
-\subsection{One-column images}\label{one-column-images}
-
-Single column is the default option, but if you want set it explicitly,
-set \texttt{fig.env} to \texttt{figure}.
-
-\begin{CodeChunk}
-\begin{figure}[H]
-
-{\centering \includegraphics{figs/image-1} 
-
-}
-
-\caption[One column image]{One column image.}\label{fig:image}
-\end{figure}
-\end{CodeChunk}
-
-\subsection{R Plots}\label{r-plots}
-
-You can use R chunks directly to plot graphs. And you can use latex
-floats in the fig.pos chunk option to have more control over the
-location of your plot on the page. For more information on latex
-placement specifiers see
-**\url{https://en.wikibooks.org/wiki/LaTeX/Floats,_Figures_and_Captions**}
-
-\begin{CodeChunk}
-\begin{figure}[H]
-
-{\centering \includegraphics{figs/plot-1} 
-
-}
-
-\caption[R plot]{R plot}\label{fig:plot}
-\end{figure}
-\end{CodeChunk}
-
-\subsection{Tables}\label{tables}
-
-Number tables consecutively; place the table number and title (in 10
-point) above the table with one line space above the caption and one
-line space below it, as in Table 1. You may float tables to the top or
-bottom of a column, set wide tables across both columns.
-
-You can use the xtable function in the xtable package.
-
-\begin{table}[H]
-\centering
-\begin{tabular}{rrrrr}
-  \hline
- & Estimate & Std. Error & t value & Pr($>$$|$t$|$) \\ 
-  \hline
-(Intercept) & 0.07 & 0.09 & 0.7 & 0.49 \\ 
-  x & 1.92 & 0.09 & 20.4 & 0.00 \\ 
-   \hline
-\end{tabular}
-\caption{This table prints across one column.} 
-\end{table}
-
-\section{Acknowledgements}\label{acknowledgements}
-
-Place acknowledgments (including funding information) in a section at
-the end of the paper.
+\fbox{\parbox[b][][c]{7.3cm}{\centering All data and code are available at https://github.com/afourtassi/conceptNet}}
+\vspace{1em}
 
 \bibliography{eacl2017}
 \bibliographystyle{eacl2017}
